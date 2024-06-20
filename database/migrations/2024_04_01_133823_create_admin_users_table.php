@@ -21,7 +21,6 @@ return new class extends Migration
             $table->boolean('status')->nullable()->default(1)->comment("1: Active, 0: Inactive");
             $table->string('phone')->nullable();
             $table->string('token')->nullable();
-            // $table->string('role')->nullable();
             $table->timestamp('token_created_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
