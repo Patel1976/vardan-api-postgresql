@@ -8,7 +8,7 @@ use App\Http\Controllers\Admin\SmsTemplateController;
 use App\Http\Controllers\Admin\SystemModuleController;
 use App\Http\Middleware\JwtMiddleware;
 use App\Http\Middleware\RoleOrPermissionMiddleware;
-
+use App\Http\Controllers\StaffUserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->group(function () {
@@ -20,6 +20,15 @@ Route::prefix('admin')->group(function () {
     Route::post('/auth/verifytoken/{token}', [AuthController::class, 'checkForgetToken']);
     Route::post('/get-all-assign-module', [SystemModuleController::class, 'getAllAssignModule']);
     Route::post('/get-all-user-module', [SystemModuleController::class, 'fetchUsersModule']);
+});
+
+Route::prefix('staff-users')->group(function(){
+  // ---> Staff User Routes
+  Route::post('create-staff-user',[StaffUserController::class,'createStaffUser']);
+  Route::put('update-staff-user/{id}',[StaffUserController::class,'updateStaffUser']);
+  Route::get('get-all-staff-users',[StaffUserController::class,'getAllStaffUsers']);
+  Route::get('get-staff-user/{id}',[StaffUserController::class,'getStaffUserById']); 
+  Route::delete('delete-staff-user/{id}',[StaffUserController::class,'deleteStaffUser']);
 });
 
 Route::middleware([JwtMiddleware::class , RoleOrPermissionMiddleware::class])->prefix('admin')->group(function () {
@@ -71,3 +80,4 @@ Route::middleware([JwtMiddleware::class])->prefix('admin')->group(function () {
     //---> Reset Password Api Routes
     Route::post('/auth/change-password', [AuthController::class, 'ChangePassword']);
 });
+
