@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
-class StaffUserController 
+class StaffUserController
 {
   public function createStaffUser(Request $request)
   {
@@ -20,7 +20,7 @@ class StaffUserController
       'address' => 'required|string|max:500',
       'status' => 'required|boolean',
     ]);
-    
+
     if ($validator->fails()) {
       return response()->json([
         'success' => 0,
@@ -70,7 +70,7 @@ class StaffUserController
       'status' => 'boolean',
     ]);
 
-    
+
     if ($validator->fails()) {
       return response()->json([
         'success' => 0,
@@ -78,22 +78,22 @@ class StaffUserController
         'message' => 'Validation failed',
         'data' => [
           'errors' => $validator->errors()
-          ]
-        ], 422);
-      }
-      
-      try {
-        $staffUser = StaffUser::find($id);
-        $staffUser->name = $request->name ?? $staffUser->name;
-        $staffUser->phone = $request->phone ?? $staffUser->phone;
-        $staffUser->mpin = $request->mpin ?? $staffUser->mpin;
-        $staffUser->address = $request->address ?? $staffUser->address;
-        $staffUser->status = $request->status ?? $staffUser->status;
-        $staffUser->timestamp = now();
-        $staffUser->save();
+        ]
+      ], 422);
+    }
 
-        error_log($staffUser);
-        
+    try {
+      $staffUser = StaffUser::find($id);
+      $staffUser->name = $request->name ?? $staffUser->name;
+      $staffUser->phone = $request->phone ?? $staffUser->phone;
+      $staffUser->mpin = $request->mpin ?? $staffUser->mpin;
+      $staffUser->address = $request->address ?? $staffUser->address;
+      $staffUser->status = $request->status ?? $staffUser->status;
+      $staffUser->timestamp = now();
+      $staffUser->save();
+
+      error_log($staffUser);
+
       return response()->json([
         'success' => 1,
         'error' => 0,
@@ -189,4 +189,21 @@ class StaffUserController
     }
   }
 
+ public function staffTimelog(Request $request)
+{
+    $request->validate([
+        'id' => 'required|exists:users,id',
+        'type' => 'required|in:in,out'
+    ]);
+
+    StaffTimelog::create([
+        'user_id' => $request->id,
+        'timelog' => now(),
+        'type' => $request->type,
+    ]);
+
+    return response()->json([
+        'message' => 'Timelog recorded successfully!',
+    ], 201);
+}
 }

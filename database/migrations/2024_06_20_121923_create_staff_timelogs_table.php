@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('staff_timelogs', function (Blueprint $table) {
             $table->id();
+            $table->integer('user_id');
             $table->timestamp('logs');
             $table->string('type');
         });

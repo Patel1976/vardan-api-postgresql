@@ -10,6 +10,6 @@ class StaffTimelog extends Model
     use HasFactory;
 
     protected $fillable = [
-        'logs', 'type',
+        'user_id', 'timelog', 'type',
     ];
 }
