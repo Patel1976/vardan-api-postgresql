@@ -29,7 +29,8 @@ Route::prefix('staff-users')->group(function(){
   Route::get('get-all-staff-users',[StaffUserController::class,'getAllStaffUsers']);
   Route::get('get-staff-user/{id}',[StaffUserController::class,'getStaffUserById']); 
   Route::delete('delete-staff-user/{id}',[StaffUserController::class,'deleteStaffUser']);
-  Route::get('time-log/{id}',[StaffUserController::class,'StaffTimelog']);
+  Route::post('time-log/{id}',[StaffUserController::class,'StaffTimelog']);
+  Route::get('get-time-log/{id}',[StaffUserController::class,'getStaffTimelog']);
 });
 
 Route::middleware([JwtMiddleware::class , RoleOrPermissionMiddleware::class])->prefix('admin')->group(function () {

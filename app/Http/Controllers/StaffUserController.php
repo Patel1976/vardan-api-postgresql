@@ -59,87 +59,79 @@ class StaffUserController
       ], 500);
     }
   }
-  
+
   public function updateStaffUser(Request $request, $id)
   {
-      
-      $staffUser = StaffUser::find($id);
-  
-      if (!$staffUser) {
-          return response()->json([
-              'success' => false,
-              'error' => true,
-              'message' => 'Staff User not found',
-              'data' => null
-          ], 404);
-      }
-  
-     
-      $validator = Validator::make($request->all(), [
-          'name' => 'string|max:255',
-          'phone' => 'string|max:20|unique:staff_users,phone,' . $id,
-          'mpin' => 'string|max:6',
-          'address' => 'string|max:500',
-          'status' => 'boolean',
-      ]);
-  
-      if ($validator->fails()) {
-          return response()->json([
-              'success' => false,
-              'error' => true,
-              'message' => 'Validation failed',
-              'errors' => $validator->errors()
-          ], 422);
-      }
-  
-      try {
-          
-          $staffUser->name = $request->input('name', $staffUser->name);
-          $staffUser->phone = $request->input('phone', $staffUser->phone);
-          $staffUser->mpin = $request->input('mpin', $staffUser->mpin);
-          $staffUser->address = $request->input('address', $staffUser->address);
-          $staffUser->status = $request->input('status', $staffUser->status);
-          $staffUser->save();
-  
-          return response()->json([
-              'success' => true,
-              'error' => false,
-              'message' => 'Staff User updated successfully',
-              'data' => $staffUser
-          ], 200);
-  
-      } catch (\Throwable $th) {
-          Log::error('Update staff user error: ' . $th->getMessage());
-  
-          return response()->json([
-              'success' => false,
-              'error' => true,
-              'message' => 'Something went wrong',
-              'data' => null
-          ], 500);
-      }
+    $staffUser = StaffUser::find($id);
+    if (!$staffUser) {
+      return response()->json([
+        'success' => false,
+        'error' => true,
+        'message' => 'Staff User not found',
+        'data' => null
+      ], 404);
+    }
+    $validator = Validator::make($request->all(), [
+      'name' => 'string|max:255',
+      'phone' => 'string|max:20|unique:staff_users,phone,' . $id,
+      'mpin' => 'string|max:6',
+      'address' => 'string|max:500',
+      'status' => 'boolean',
+    ]);
+    if ($validator->fails()) {
+      return response()->json([
+        'success' => false,
+        'error' => true,
+        'message' => 'Validation failed',
+        'errors' => $validator->errors()
+      ], 422);
+    }
+    try {
+
+      $staffUser->name = $request->input('name', $staffUser->name);
+      $staffUser->phone = $request->input('phone', $staffUser->phone);
+      $staffUser->mpin = $request->input('mpin', $staffUser->mpin);
+      $staffUser->address = $request->input('address', $staffUser->address);
+      $staffUser->status = $request->input('status', $staffUser->status);
+      $staffUser->save();
+
+      return response()->json([
+        'success' => true,
+        'error' => false,
+        'message' => 'Staff User updated successfully',
+        'data' => $staffUser
+      ], 200);
+
+    } catch (\Throwable $th) {
+      return response()->json([
+        'success' => false,
+        'error' => true,
+        'message' => 'Something went wrong',
+        'data' => null
+      ], 500);
+    }
   }
-  
+
 
   public function getAllStaffUsers()
-    {
-        try {
-            $staffUsers = StaffUser::all();
-            return response()->json([
-                'success' => 1,
-                'error' => 0,
-                'message' => ' Staff Users List',
-                'data' => $staffUsers
-            ], 200);
-        } catch (\Throwable $th) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Something went wrong',
-                'data' => null
-            ], 500);
-        }
+  {
+    try {
+      $staffUsers = StaffUser::all();
+      return response()->json([
+        'success' => 1,
+        'error' => 0,
+        'message' => ' Staff Users List',
+        'data' => $staffUsers
+      ], 200);
+    } catch (\Throwable $th) {
+      return response()->json([
+        'success' => 0,
+        'error' => 1,
+        'message' => 'Something went wrong',
+        'data' => null
+      ], 500);
     }
+  }
 
   public function getStaffUserById($id)
   {
@@ -200,21 +192,49 @@ class StaffUserController
     }
   }
 
- public function staffTimelog(Request $request)
-{
+  public function staffTimelog(Request $request)
+  {
     $request->validate([
-        'id' => 'required|exists:users,id',
-        'type' => 'required|in:in,out'
+      'type' => 'required|in:in,out'
     ]);
-
+    error_log($request->id);
     StaffTimelog::create([
-        'user_id' => $request->id,
-        'timelog' => now(),
-        'type' => $request->type,
+      'user_id' => $request->id,
+      'logs' => now(),
+      'type' => $request->type,
     ]);
-
+    error_log($request->type);
     return response()->json([
-        'message' => 'Timelog recorded successfully!',
+      'message' => 'Timelog recorded successfully!',
     ], 201);
-}
+  }
+
+  public function getStaffTimelog(Request $request)
+  {
+    try {
+      $findStaff = StaffUser::find($request->id);
+      if(!$findStaff){
+        return response()->json([
+         'success' => 0,
+          'error' => 1,
+         'message' => 'Staff not found',
+          'data' => null
+        ], 404);
+      }
+      $Staffalllogs = StaffTimelog::where('user_id', $request->id)->get();
+      return response()->json([
+       'success' => 1,
+        'error' => 0,
+       'message' => 'Staff Timelogs',
+        'data' => $Staffalllogs
+      ], 200);
+    } catch (\Throwable $th) {
+      return response()->json([
+          'success' => 0,
+          'error' => 1,
+          'message' => 'Something went wrong',
+          'data' => null
+      ], 500);
+    }
+  }
 }

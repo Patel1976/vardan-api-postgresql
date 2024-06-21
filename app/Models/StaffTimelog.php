@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class StaffTimelog extends Model
 {
     use HasFactory;
-
+    public $timestamps = false;
     protected $fillable = [
-        'user_id', 'timelog', 'type',
+        'user_id', 'logs', 'type',
     ];
 }

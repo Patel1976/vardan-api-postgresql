@@ -13,6 +13,7 @@ return new class extends Migration
             $table->integer('user_id');
             $table->timestamp('logs');
             $table->string('type');
+            $table->timestamps();
         });
     }
 
