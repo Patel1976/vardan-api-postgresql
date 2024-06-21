@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\StaffUser;
+use App\Models\StaffTimelog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
-class StaffUserController extends Controller
+class StaffUserController 
 {
-  //Create Staff User
   public function createStaffUser(Request $request)
   {
     $validator = Validator::make($request->all(), [
@@ -20,7 +20,7 @@ class StaffUserController extends Controller
       'address' => 'required|string|max:500',
       'status' => 'required|boolean',
     ]);
-
+    
     if ($validator->fails()) {
       return response()->json([
         'success' => 0,
@@ -60,7 +60,6 @@ class StaffUserController extends Controller
     }
   }
 
-  //Update Staff User
   public function updateStaffUser(Request $request, $id)
   {
     $validator = Validator::make($request->all(), [
@@ -71,6 +70,7 @@ class StaffUserController extends Controller
       'status' => 'boolean',
     ]);
 
+    
     if ($validator->fails()) {
       return response()->json([
         'success' => 0,
@@ -78,20 +78,22 @@ class StaffUserController extends Controller
         'message' => 'Validation failed',
         'data' => [
           'errors' => $validator->errors()
-        ]
-      ], 422);
-    }
+          ]
+        ], 422);
+      }
+      
+      try {
+        $staffUser = StaffUser::find($id);
+        $staffUser->name = $request->name ?? $staffUser->name;
+        $staffUser->phone = $request->phone ?? $staffUser->phone;
+        $staffUser->mpin = $request->mpin ?? $staffUser->mpin;
+        $staffUser->address = $request->address ?? $staffUser->address;
+        $staffUser->status = $request->status ?? $staffUser->status;
+        $staffUser->timestamp = now();
+        $staffUser->save();
 
-    try {
-      $staffUser = StaffUser::findOrFail($id);
-      $staffUser->name = $request->name ?? $staffUser->name;
-      $staffUser->phone = $request->phone ?? $staffUser->phone;
-      $staffUser->mpin = $request->mpin ?? $staffUser->mpin;
-      $staffUser->address = $request->address ?? $staffUser->address;
-      $staffUser->status = $request->status ?? $staffUser->status;
-      $staffUser->timestamp = now();
-      $staffUser->save();
-
+        error_log($staffUser);
+        
       return response()->json([
         'success' => 1,
         'error' => 0,
@@ -108,7 +110,6 @@ class StaffUserController extends Controller
     }
   }
 
-  //Get all the users
   public function getAllStaffUsers()
   {
     try {
@@ -129,7 +130,6 @@ class StaffUserController extends Controller
     }
   }
 
-  //get staff user by id
   public function getStaffUserById($id)
   {
     try {
@@ -158,8 +158,6 @@ class StaffUserController extends Controller
       ], 500);
     }
   }
-
-
 
   public function deleteStaffUser($id)
   {
@@ -190,4 +188,5 @@ class StaffUserController extends Controller
       ], 500);
     }
   }
+
 }
