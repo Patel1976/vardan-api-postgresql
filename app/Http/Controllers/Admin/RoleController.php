@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class RoleController
 {
@@ -42,38 +43,105 @@ class RoleController
         }
     }
 
-     // Edit Role Name
-     public function updateRole(Request $request , $id)
-     {
-         try {
-             $roleName = $request->role;
-             $findRole =Role::where('id' , $id)->first();
-             if ($findRole) {
-                 $findRole->name = $roleName;
-                 $findRole->update();
-                 return response()->json([
-                     'success' => 1,
-                     'error' => 0,
-                     'message' => $roleName . ' role updated successfully',
-                     'data' => null
-                 ], 201);                
-             }else {
-                 return response()->json([
-                     'success' => 0,
-                     'error' => 1,
-                     'message' => 'Role name is required',
-                     'data' => null
-                 ], 400);                
-             }
-         } catch (\Exception $e) {
-             return response()->json([
-                 'success' => 0,
-                 'error' => 1,
-                 'message' => $e->getMessage(),
-                 'data' => null
-             ], 500);            
-         }
-     }
+    // Edit Role Name
+    public function updateRole(Request $request, $id)
+{
+    try {
+        // Retrieve the role name from the request
+        $roleName = $request->input('role');
+        
+        // Check if the role name is provided
+        if (!$roleName) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Role name is required',
+                'data' => null
+            ], 400);
+        }
+        
+        // Find the role by ID
+        $findRole = Role::find($id);
+        
+       
+        if ($findRole) {
+            $findRole->name = $roleName;
+            $findRole->save();
+            
+            return response()->json([
+                'success' => 1,
+                'error' => 0,
+                'message' => $roleName . ' role updated successfully',
+                'data' => null
+            ], 201);
+        } else {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Role not found',
+                'data' => null
+            ], 404);
+        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => 0,
+            'error' => 1,
+            'message' => $e->getMessage(),
+            'data' => null
+        ], 500);
+    }
+}
+
+    //Get all Roles
+    public function getAllRoles()
+    {
+        try {
+
+            $findAllUsers = Role::all();
+            return response()->json([
+                'success' => 1,
+                'error' => 0,
+                'message' => 'Roles retrieved successfully',
+                'data' => $findAllUsers
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Something went wrong',
+                'data' => null
+            ], 401);
+        }
+    }
+
+    //Get role by id
+    public function getRoleById($id)
+    {
+        try {
+            $role = Role::findOrFail($id);
+            if (!$role) {
+                return response()->json([
+                    'success' => 0,
+                    'error' => 1,
+                    'message' => 'Role not found',
+                    'data' => null
+                ], 404);
+            }
+            return response()->json([
+                'success' => 1,
+                'error' => 0,
+                'message' => 'Role found',
+                'data' => $role
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => $e->getMessage(),
+                'data' => null
+            ], 401);
+        }
+    }
 
     // delete role
     public function deleteRole(Request $request)
@@ -115,311 +183,116 @@ class RoleController
         }
     }
 
-    // give role to user
-    public function assignRoleToUser(Request $request, AdminUser $id)
+    //Fetch the roles with permission by ID
+    public function getRoleWithPermissionById($id)
     {
         try {
-            $roleName = $request->role;
-            $role = Role::findByName($request->role);
-            if ($role) {
-                if (!$id) {
-                    return response()->json([
-                        'success' => 0,
-                        'error' => 1,
-                        'message' => 'User not found',
-                        'data' => null
-                    ], 404);
-                }
-                $id->assignRole($role);
-                $id->role = $roleName;
-                $id->save();
-                return response()->json([
-                    'success' => 1,
-                    'error' => 0,
-                    'message' => 'Role ' . $roleName . ' assigned successfully',
-                    'data' => null
-                ], 200);
-            } else {
-                return response()->json([
-                    'success' => 0,
-                    'error' => 1,
-                    'message' => 'Role ' . $roleName . ' not found',
-                    'data' => null
-                ], 404);
+            $roleWithPermissions = Role::with('permissions')->findOrFail($id);
+
+            $rolePermissions = DB::table('role_has_permissions')
+                ->where('role_id', $id)
+                ->get();
+
+            $permissionModuleMap = [];
+            foreach ($rolePermissions as $rolePermission) {
+                $permissionModuleMap[$rolePermission->permission_id] = $rolePermission->module;
             }
-        } catch (\Exception $e) {
+
+            foreach ($roleWithPermissions->permissions as $permission) {
+                $permission->module = $permissionModuleMap[$permission->id] ?? [];
+            }
+
+            return response()->json([
+                'success' => 1,
+                'error' => 0,
+                'message' => '',
+                'data' => $roleWithPermissions
+            ], 200);
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => 0,
                 'error' => 1,
-                'message' => 'Failed to assign role: ' . $e->getMessage(),
+                'message' => 'Wrong ID is submitted or ID is invalid',
+                'data' => null
+            ], 400);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Something went wrong',
                 'data' => null
             ], 500);
         }
     }
 
-
-public function assignPermissionsToRole(Request $request, $id)
-{
-    try {
-        // Retrieve permissions from the request
-        $permissions = $request->input('permissions', []);
-        
-        // Find the role by its ID
-        $role = Role::find($id);
-        if (!$role) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Role not found',
-                'data' => null
-            ], 404);
-        }
-        
-        $role->syncPermissions([]);
-        // Process each permission
-        if(!empty($permissions)){
-            foreach ($permissions as $permissionId => $moduleArr) {
-                $role->permissions()->attach($permissionId);
-                $role->permissions()->updateExistingPivot($permissionId, ['module' => json_encode($moduleArr)]);
-            }
-        }
-        return response()->json([
-            'success' => 1,
-            'error' => 0,
-            'message' => 'Permissions assigned to role ' . $role->name . ' successfully',
-            'data' => null
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => 0,
-            'error' => 1,
-            'message' => 'Failed to assign permissions: ' . $e->getMessage(),
-            'data' => null
-        ], 500);
-    }
-}
-
-
-    // check role
-    public function checkUserRole(AdminUser $id, Request $request)
+    //Assign  Role Permission By Id
+    public function assignPermissionsToRoleById(Request $request, $roleId)
     {
         try {
-            $roleName = $request->role;
-            if ($id->hasRole($roleName)) {
-                return response()->json([
-                    'success' => 1,
-                    'error' => 0,
-                    'message' => 'User is has the role ' . $roleName,
-                    'data' => null
-                ], 200);                
-        } else {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'User is does not has the role ' . $roleName,
-                'data' => null
-            ], 404);            
-        }
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => 0,
-            'error' => 1,
-            'message' => 'Failed to check user role: ' . $e->getMessage(),
-            'data' => null
-        ], 500);        
-    }
-    }
+            $permissionsArray = $request->input('permissions', []);
+            $permissionChanges = [];
 
-    public function getRoleById($id) {
-        try {
-            $role = Role::find($id);
-            if(!$role) {
-                return response()->json([
-                    'success' => 0,
-                    'error' => 1,
-                    'message' => 'Role not found',
-                    'data' => null
-                ], 404);
-            }
-            return response()->json([
-                'success' => 1,
-                'error' => 0,
-                'message' => 'Role found',
-                'data' => $role
-            ], 200);
-        } catch(\Exception $e) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => $e->getMessage(),
-                'data' => null
-            ], 401);
-        }
-     }
-    
-     // Remove Permission From A Role using Id
-     public function removeRolePermissionById(Request $request, $id)
-{
-    try {
-        // Retrieve permissions and modules from the request
-        $permissions = $request->input('permissions', []);
-        $modules = $request->input('modules', []);
+            foreach ($permissionsArray as $permission) {
+                $module = $permission['module'];
+                $permissionName = $permission['permission'];
 
-        // Find the role by its ID
-        $role = Role::find($id);
-        if (!$role) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Role not found',
-                'data' => null
-            ], 404);
-        }
-
-        // Remove permissions from the role
-        if (!empty($permissions)) {
-            $role->revokePermissionTo($permissions);
-        }
-
-        // Remove modules from the role's permissions
-        if (!empty($modules)) {
-            foreach ($modules as $module) {
-                $role->permissions()->where('module', $module)->detach();
-            }
-        }
-
-        return response()->json([
-            'success' => 1,
-            'error' => 0,
-            'message' => 'Permissions and modules removed from role successfully',
-            'data' => null
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => 0,
-            'error' => 1,
-            'message' => 'Failed to remove permissions and modules: ' . $e->getMessage(),
-            'data' => null
-        ], 500);
-    }
-}
-
-    
-
-    public function getAllRoles()
-    {
-        try {
-            $findAllUsers = Role::where('name', '!=', 'Super Admin')->get();
-            return response()->json([
-                'success' => 1,
-                'error' => 0,
-                'message' => '',
-                'data' => $findAllUsers
-            ], 200);            
-        } catch (\Throwable $th) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Something went wrong',
-                'data' => null
-            ], 401);            
-        }
-    }
-
-    public function permissionList()
-    {
-        try {
-            $findAllUsers = Permission::all();
-            return response()->json([
-                'success' => 1,
-                'error' => 0,
-                'message' => '',
-                'data' => $findAllUsers
-            ], 200);            
-        } catch (\Throwable $th) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Something went wrong',
-                'data' => null
-            ], 401);            
-        }
-    }
-    
-    public function rolesWithPermission()
-{
-    try {
-
-        $rolesWithPermissions = Role::with('permissions')->get();
-   
-        $rolePermissions = DB::table('role_has_permissions')->get();
-        
-        $permissionModuleMap = [];
-        foreach ($rolePermissions as $rolePermission) {
-            $permissionModuleMap[$rolePermission->permission_id] = json_decode($rolePermission->module, true);
-        }
-
-        foreach ($rolesWithPermissions as $role) {
-            foreach ($role->permissions as $permission) {
-                if (isset($permissionModuleMap[$permission->id])) {
-                    $permission->module = $permissionModuleMap[$permission->id];
-                } else {
-                    $permission->module = [];
+                if (!isset($permissionChanges[$module])) {
+                    $permissionChanges[$module] = [];
                 }
+
+                $permissionChanges[$module][] = $permissionName;
             }
-        }
 
             return response()->json([
                 'success' => 1,
                 'error' => 0,
-                'message' => '',
-                'data' => $rolesWithPermissions
+                'message' => 'Permissions assigned to role successfully',
+                'data' => $permissionChanges
             ], 200);
-
-        } catch (\Throwable $th) {
-
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => 0,
                 'error' => 1,
-                'message' => 'Something went wrong',
+                'message' => 'Failed to assign permissions: ' . $e->getMessage(),
                 'data' => null
-            ], 500); // Changed status code to 500 for server error
+            ], 500);
         }
     }
 
+     //get all Roles with permission List
+     public function getAllRolesWithPermission()
+     {
+         try {
+             $rolesWithPermissions = Role::with('permissions')->get();
+             $rolePermissions = DB::table('role_has_permissions')->get();
+             $permissionModuleMap = [];
+             foreach ($rolePermissions as $rolePermission) {
+                 $permissionModuleMap[$rolePermission->permission_id] = json_decode($rolePermission->module, true);
+             }
+             foreach ($rolesWithPermissions as $role) {
+                 foreach ($role->permissions as $permission) {
+                     if (isset($permissionModuleMap[$permission->id])) {
+                         $permission->module = $permissionModuleMap[$permission->id];
+                     } else {
+                         $permission->module = [];
+                     }
+                 }
+             }
+             return response()->json([
+                 'success' => 1,
+                 'error' => 0,
+                 'message' => '',
+                 'data' => $rolesWithPermissions
+             ], 200);
+         } catch (\Throwable $th) {
+             error_log('Error in rolesWithPermissionById: ' . $th->getMessage());
+             return response()->json([
+                 'success' => 0,
+                 'error' => 1,
+                 'message' => 'Something went wrong',
+                 'data' => null
+             ], 500);
+         }
+     }
 
-public function getPermissionForRole($id)
-{
-    try {
-        $role = Role::find($id);
-        if(!$role) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Role not found',
-                'data' => null
-            ], 404);
-        }
-        $rolePermissions = DB::table('role_has_permissions')
-            ->select('permission_id','module')
-            ->where('role_id', $id)
-            ->get()
-            ->pluck('module', 'permission_id');
-        return response()->json([
-            'success' => 1,
-            'error' => 0,
-            'message' => '',
-            'data' => $rolePermissions
-        ], 200);
-    } catch (\Throwable $th) {
-        return response()->json([
-            'success' => 0,
-            'error' => 1,
-            'message' => 'Something went wrong',
-            'data' => null
-        ], 500);
-    }
-  }
 }

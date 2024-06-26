@@ -59,7 +59,7 @@ class StaffUserController
       ], 500);
     }
   }
-  
+
   public function updateStaffUser(Request $request, $id)
   {
       
@@ -109,7 +109,6 @@ class StaffUserController
           ], 200);
   
       } catch (\Throwable $th) {
-          Log::error('Update staff user error: ' . $th->getMessage());
   
           return response()->json([
               'success' => false,

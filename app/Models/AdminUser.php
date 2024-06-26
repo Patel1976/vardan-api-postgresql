@@ -8,12 +8,12 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Spatie\Permission\Traits\HasRoles;
-use Spatie\Permission\Models\Role;
 
 class AdminUser extends Authenticatable implements JWTSubject , AuthenticatableContract
 {
     use HasRoles , HasFactory , Notifiable ;
     protected $guard_name = 'admin';
+
     protected $fillable = [
         'name',
         'email',
@@ -21,8 +21,10 @@ class AdminUser extends Authenticatable implements JWTSubject , AuthenticatableC
         'status',
         'phone',
         'token',
+        'role',
         'token_created_at'
     ];
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -33,11 +35,13 @@ class AdminUser extends Authenticatable implements JWTSubject , AuthenticatableC
         'remember_token',
     ];
 
+
     
     public function getJWTIdentifier()
     {
         return $this->getKey();
     }
+ 
     /**
      * Return a key value array, containing any custom claims to be added to the JWT.
      *
@@ -46,9 +50,5 @@ class AdminUser extends Authenticatable implements JWTSubject , AuthenticatableC
     public function getJWTCustomClaims()
     {
         return [];
-    }
-    public function userRoles()
-    {
-        return $this->belongsToMany(Role::class, 'model_has_roles', 'model_id', 'role_id')->select('id', 'name');
     }
 }
