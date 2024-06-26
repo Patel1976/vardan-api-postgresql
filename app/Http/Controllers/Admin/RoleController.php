@@ -164,7 +164,6 @@ public function assignPermissionsToRole(Request $request, $id)
         // Retrieve permissions from the request
         $permissions = $request->input('permissions', []);
         
-        // Find the role by its ID
         $role = Role::find($id);
         if (!$role) {
             return response()->json([

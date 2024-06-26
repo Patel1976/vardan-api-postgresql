@@ -14,9 +14,9 @@ return new class extends Migration
           $table->string('name');
           $table->string('email')->nullable();
           $table->string('phone')->unique();
-          $table->string('mpin');
+          $table->string('mpin')->nullable();
           $table->string('address');
-          $table->boolean('status');
+          $table->boolean('status')->nullable();
           $table->timestamps();
         });
     }

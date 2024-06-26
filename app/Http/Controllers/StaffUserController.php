@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\StaffUser;
 use App\Models\StaffTimelog;
+use App\Models\StaffEmergencyLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class StaffUserController
 {
@@ -14,11 +16,11 @@ class StaffUserController
   {
     $validator = Validator::make($request->all(), [
       'name' => 'required|string|max:255',
-      'email' => 'required|email|unique:staff_users|max:255',
+      'email' => 'email|unique:staff_users|max:255',
       'phone' => 'required|string|max:20|unique:staff_users',
-      'mpin' => 'required|string|max:6',
+      'mpin' => 'string|max:6',
       'address' => 'required|string|max:500',
-      'status' => 'required|boolean',
+      'status' => 'boolean',
     ]);
 
     if ($validator->fails()) {
@@ -90,6 +92,7 @@ class StaffUserController
 
       $staffUser->name = $request->input('name', $staffUser->name);
       $staffUser->phone = $request->input('phone', $staffUser->phone);
+      $staffUser->email = $request->input('email', $staffUser->email);
       $staffUser->mpin = $request->input('mpin', $staffUser->mpin);
       $staffUser->address = $request->input('address', $staffUser->address);
       $staffUser->status = $request->input('status', $staffUser->status);
@@ -138,6 +141,7 @@ class StaffUserController
     try {
       $staffUser = StaffUser::find($id);
       if ($staffUser) {
+        $staffUser->makeHidden('mpin');
         return response()->json([
           'success' => 1,
           'error' => 0,
@@ -197,13 +201,11 @@ class StaffUserController
     $request->validate([
       'type' => 'required|in:in,out'
     ]);
-    error_log($request->id);
     StaffTimelog::create([
       'user_id' => $request->id,
       'logs' => now(),
       'type' => $request->type,
     ]);
-    error_log($request->type);
     return response()->json([
       'message' => 'Timelog recorded successfully!',
     ], 201);
@@ -213,28 +215,196 @@ class StaffUserController
   {
     try {
       $findStaff = StaffUser::find($request->id);
-      if(!$findStaff){
+      if (!$findStaff) {
         return response()->json([
-         'success' => 0,
+          'success' => 0,
           'error' => 1,
-         'message' => 'Staff not found',
+          'message' => 'Staff not found',
           'data' => null
         ], 404);
       }
       $Staffalllogs = StaffTimelog::where('user_id', $request->id)->get();
       return response()->json([
-       'success' => 1,
+        'success' => 1,
         'error' => 0,
-       'message' => 'Staff Timelogs',
+        'message' => 'Staff Timelogs',
         'data' => $Staffalllogs
       ], 200);
     } catch (\Throwable $th) {
       return response()->json([
-          'success' => 0,
-          'error' => 1,
-          'message' => 'Something went wrong',
-          'data' => null
+        'success' => 0,
+        'error' => 1,
+        'message' => 'Something went wrong',
+        'data' => null
       ], 500);
     }
   }
+
+  public function getStaffTimelogByDate(Request $request)
+  {
+    try {
+      $findStaff = StaffUser::find($request->id);
+      if (!$findStaff) {
+        return response()->json([
+          'success' => 0,
+          'error' => 1,
+          'message' => 'Staff not found',
+          'data' => null
+        ], 404);
+      }
+      $Staffalllogs = StaffTimelog::where('user_id', $request->id)->whereDate('logs', $request->date)->get();
+      return response()->json([
+        'success' => 1,
+        'error' => 0,
+        'message' => 'Staff Timelogs',
+        'data' => $Staffalllogs
+      ], 200);
+    } catch (\Throwable $th) {
+      return response()->json([
+        'success' => 0,
+        'error' => 1,
+        'message' => 'Something went wrong',
+        'data' => null
+      ], 500);
+    }
+  }
+
+  public function getStaffTimelogByRange(Request $request)
+  {
+    try {
+      $request->validate([
+        'start_date' => 'required|date',
+        'end_date' => 'required|date|after_or_equal:start_date',
+      ]);
+
+      $staff = StaffUser::find($request->id);
+      if (!$staff) {
+        return response()->json([
+          'success' => false,
+          'error' => true,
+          'message' => 'Staff not found',
+          'data' => null
+        ], 404);
+      }
+
+      $startDate = Carbon::parse($request->start_date)->startOfDay();
+      $endDate = Carbon::parse($request->end_date)->endOfDay();
+      $timelogs = StaffTimelog::where('user_id', $staff->id)
+        ->whereBetween('logs', [$startDate, $endDate])
+        ->orderBy('logs', 'asc')
+        ->get();
+
+      return response()->json([
+        'success' => true,
+        'error' => false,
+        'message' => 'Staff timelogs retrieved successfully',
+        'data' => $timelogs
+      ], 200);
+
+    } catch (\Throwable $th) {
+      return response()->json([
+        'success' => 0,
+        'error' => 1,
+        'message' => 'Something went wrong',
+        'data' => null
+      ], 500);
+    }                      // also need to filter with the type of login 
+  }
+  public function imagelog(Request $request)
+  {
+      try {
+          $request->validate([
+              'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+          ]);
+          // error_log($request->hasFile('image') ? 'File is present' : 'File is not present');
+          $staff = StaffUser::find($request->id);
+          if (!$staff) {
+              return response()->json([
+                  'success' => false,
+                  'error' => true,
+                  'message' => 'Staff not found',
+                  'data' => null
+              ], 404);
+          }
+          if ($request->hasFile('image')) {
+              $image = $request->file('image');
+              $imageData = $this->convertImageToBytea($image);
+              $staffImageLog = StaffEmergencyLog::create([
+                  'user_id' => $request->id,
+                  'image_logs' => $imageData,
+              ]);
+              return response()->json([
+                  'success' => true,
+                  'message' => 'Image uploaded and logged successfully as bytea',
+                  'data' => $staffImageLog
+              ], 201);
+          } else {
+              return response()->json([
+                  'success' => false,
+                  'message' => 'Image upload failed',
+                  'data' => null
+              ], 400);
+          }
+      } catch (\Throwable $th) {
+          error_log($th->getMessage());
+          return response()->json([
+              'success' => 0,
+              'error' => 1,
+              'message' => 'Something went wrong',
+              'data' => null
+          ], 500);
+      }
+  }
+  private function convertImageToBytea($image)
+  {
+      $imageData = file_get_contents($image->path()); 
+      return base64_encode($imageData);
+  }
+  
+  
+  private function convertByteaToImage($base64Data, $outputPath)
+  {
+      $imageData = base64_decode($base64Data);
+      file_put_contents($outputPath, $imageData);
+      return $outputPath;
+  }
+  
+    public function getStaffImageLog(Request $request)
+    {
+        try {
+          $staff = StaffUser::find($request->id);
+            if (!$staff) {
+                return response()->json([
+                   'success' => false,
+                    'error' => true,
+                   'message' => 'Staff not found',
+                    'data' => null
+                ], 404);
+            }
+            $staffImageLog = StaffEmergencyLog::where('user_id', $request->id)->pluck('image_logs')->first();
+            error_log($request->id);
+            error_log($staffImageLog);
+
+            if (!$staffImageLog) {
+                return response()->json([
+                    'success' => false,
+                    'error' => true,
+                    'message' => 'Image log not found',
+                    'data' => null
+                ], 404);
+            }
+            $imageData = base64_decode($staffImageLog);
+            error_log($imageData);
+            return response($imageData, 200)
+                ->header('Content-Type', 'image/jpeg');
+
+      } catch(\Throwable $th) {
+        return response()->json([
+         'success' => 0,
+          'error' => 1,
+         'message' => 'Something went wrong',
+          'data' => null
+        ], 500);
+      }
+    } 
 }

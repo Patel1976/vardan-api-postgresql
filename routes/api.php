@@ -31,6 +31,10 @@ Route::prefix('staff-users')->group(function(){
   Route::delete('delete-staff-user/{id}',[StaffUserController::class,'deleteStaffUser']);
   Route::post('time-log/{id}',[StaffUserController::class,'StaffTimelog']);
   Route::get('get-time-log/{id}',[StaffUserController::class,'getStaffTimelog']);
+  Route::get('get-time-log-by-date/{id}',[StaffUserController::class,'getStaffTimelogByDate']);
+  Route::post('get-time-log-by-range/{id}',[StaffUserController::class,'getStaffTimelogByRange']);
+  Route::post('emergency-image-log/{id}',[StaffUserController::class,'imagelog']);
+  Route::get('get-image-log/{id}',[StaffUserController::class,'getStaffImageLog']);  //not working
 });
 
 Route::middleware([JwtMiddleware::class , RoleOrPermissionMiddleware::class])->prefix('admin')->group(function () {
