@@ -11,6 +11,7 @@ class JwtMiddleware
     {
         $bearerToken =  $request->header('Authorization');
         $token = substr($bearerToken, 7);
+        // error_log($token);
         if (!$token) { 
             return response()->json([
                 'success' => 0,

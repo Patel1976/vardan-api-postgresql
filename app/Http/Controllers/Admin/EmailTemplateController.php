@@ -42,84 +42,8 @@ class EmailTemplateController
             ], 500);
         }
     }
-    // Get all template
-    public function getAllEmailTemplate(){
-        try {
-           $findTemplate = EmailTemplate::all();
-           return response()->json([
-            'success' => 1,
-            'error' => 0,
-            'message' => 'Email Template List',
-            'data' => $findTemplate
-        ], 200);
-        } catch (\Throwable $th) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Error',
-                'data' => $th
-            ], 404);
-        }
-    }
 
-    public function getEmailTemplate($id){
-        try {
-            if(!$id){
-                return response()->json([
-                    'success' => 0,
-                    'error' => 1,
-                    'message' => 'Error: Please select any Email Template.',
-                    'data' => null
-                ], 400);
-            }
-            $emailTemplate = EmailTemplate::findOrFail($id);
-            if ($emailTemplate) {
-                return response()->json([
-                    'success' => 1,
-                    'error' => 0,
-                    'message' => 'Email Template Records',
-                    'data' => $emailTemplate
-                ], 200);
-            }
-        } catch (\Throwable $th) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Error',
-                'data' => $th
-            ], 401);
-        }
-    }
-    public function deleteEmailTemplate(Request $request){
-        try {
-            $emailTemplate = EmailTemplate::where('id' , $request->id)->first();
-            if(!$emailTemplate){
-                return response()->json([
-                    'success' => 0,
-                    'error' => 1,
-                    'message' => 'Error: Template name is not Found.',
-                    'data' => null
-                ], 404);
-            }
-            $emailTemplate->delete();
-            return response()->json([
-                'success' => 1,
-                'error' => 0,
-                'message' => 'Email Template is successfully Deleted',
-                'data' => null
-            ], 200);
-
-            
-        } catch (\Throwable $th) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Error',
-                'data' => $th
-            ], 500);
-        }
-    }
-
+    //Edit Email Template
     public function updateEmailTemplate(Request $request){
         try {
             $name = $request->name;
@@ -155,6 +79,92 @@ class EmailTemplateController
                 'data' => null
             ], 200);
 
+        } catch (\Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Error',
+                'data' => $th
+            ], 500);
+        }
+    }
+
+    public function getEmailTemplate(Request $request){
+        try {
+            if(!$request->id){
+                return response()->json([
+                    'success' => 0,
+                    'error' => 1,
+                    'message' => 'Error: Please select any Email Template.',
+                    'data' => null
+                ], 400);
+            }
+            $emailTemplate = EmailTemplate::find($request->id);
+            if ($emailTemplate) {
+                return response()->json([
+                    'success' => 1,
+                    'error' => 0,
+                    'message' => 'Email Template Records',
+                    'data' => $emailTemplate
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => 0,
+                    'error' => 1,
+                    'message' => 'Error',
+                    'data' => ''
+                ], 404);
+            }
+        } catch (\Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Error',
+                'data' => $th
+            ], 401);
+        }
+    }
+
+    // Get all template
+    public function getAllEmailTemplates(){
+        try {
+           $findTemplate = EmailTemplate::all();
+           return response()->json([
+            'success' => 1,
+            'error' => 0,
+            'message' => 'Email Template List',
+            'data' => $findTemplate
+        ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Error',
+                'data' => $th
+            ], 401);
+        }
+    }
+
+    public function deleteEmailTemplate(Request $request){
+        try {
+            $emailTemplate = EmailTemplate::where('id' , $request->id)->first();
+            if(!$emailTemplate){
+                return response()->json([
+                    'success' => 0,
+                    'error' => 1,
+                    'message' => 'Error: Template name is not Found.',
+                    'data' => null
+                ], 404);
+            }
+            $emailTemplate->delete();
+            return response()->json([
+                'success' => 1,
+                'error' => 0,
+                'message' => 'Email Template is successfully Deleted',
+                'data' => null
+            ], 200);
+
+            
         } catch (\Throwable $th) {
             return response()->json([
                 'success' => 0,

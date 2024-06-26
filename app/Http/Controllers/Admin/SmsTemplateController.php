@@ -38,6 +38,53 @@ class SmsTemplateController
         }
     }
 
+    //Edit sms template
+    public function updateSmsTemplate(Request $request){
+      try {
+          $smsName = $request->name;
+          $smsBody = $request->body;
+          
+          if (!$smsName) {
+              return response()->json([
+                  'success' => 0,
+                  'error' => 1,
+                  'message' => 'Error: sms Template name is required.',
+                  'data' => null
+              ], 400);
+          }
+          
+          $smsTemplate = SmsTemplate::find($request->id);
+          
+          if (!$smsTemplate) {
+              return response()->json([
+                  'success' => 0,
+                  'error' => 1,
+                  'message' => 'Sms Template not found.',
+                  'data' => null
+              ], 404);
+          }
+          
+          $smsTemplate->name = $smsName;
+          $smsTemplate->body = $smsBody;
+          $smsTemplate->save();
+          
+          return response()->json([
+              'success' => 1,
+              'error' => 0,
+              'message' => 'Sms Template is successfully edited.',
+              'data' => null
+          ], 200);
+          
+      } catch (\Throwable $th) {
+          return response()->json([
+              'success' => 0,
+              'error' => 1,
+              'message' => 'Error: ' . $th->getMessage(), 
+              'data' => $th 
+          ], 500);
+      }
+  }
+  
     // Get all SMS template
     public function getAllSmsTemplate(){
         try {
@@ -96,77 +143,56 @@ class SmsTemplateController
             ], 500);
         }
     }
-    //Edit sms template
-    public function updateSmsTemplate(Request $request){
-        try {
-            $smsName = $request->name;
-            $smsBody = $request->body;
-            if(!$smsName){
-                return response()->json([
-                    'success' => 0,
-                    'error' => 1,
-                    'message' => 'Error: sms Template name is required.',
-                    'data' => null
-                ], 400);
-            }
-            $smsTemplate = SmsTemplate::where('id' , $request->id)->first();
-            $smsTemplate->name = $smsName;
-            $smsTemplate->body = $smsBody;
-            $smsTemplate->update();
-            return response()->json([
-                'success' => 1,
-                'error' => 0,
-                'message' => 'Sms Template is successfully Edited',
-                'data' => null
-            ], 200);
-        } catch (\Throwable $th) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Error',
-                'data' => $th
-            ], 500);
-        }
-    }
     
     //Delete SMS Template
-    public function deleteSmsTemplate(Request $request){
-        try {
-            $id = $request->id;
-            if(!$id){
-                return response()->json([
-                    'success' => 0,
-                    'error' => 1,
-                    'message' => 'Error: sms Template ID is required.',
-                    'data' => null
-                ], 400);
-            }
-            $smsTemplate = SmsTemplate::find($id); 
-           
-            if (!$smsTemplate) {
-                return response()->json([
-                    'success' => false,
-                    'error' => true,
-                    'message' => 'Error: SMS Template not found.',
-                    'data' => null
-                ], 404); 
-            }
-            $smsTemplate->delete();
-            return response()->json([
-                'success' => true,
-                'error' => false,
-                'message' => 'SMS Template is successfully deleted',
-                'data' => null
-            ], 200); 
-            
-        } catch (\Throwable $th) {
-            return response()->json([
-                'success' => 0,
-                'error' => 1,
-                'message' => 'Error',
-                'data' => $th
-            ], 500);
-        }
-    }
-    
+    public function deleteSmsTemplate(Request $request) {
+      try {
+          $id = $request->id;
+          
+          if (!$id) {
+              return response()->json([
+                  'success' => 0,
+                  'error' => 1,
+                  'message' => 'Error: SMS Template ID is required.',
+                  'data' => null
+              ], 400);
+          }
+          
+          $smsTemplate = SmsTemplate::find($id);
+          
+          if (!$smsTemplate) {
+              return response()->json([
+                  'success' => 0,
+                  'error' => 1,
+                  'message' => 'Error: SMS Template not found.',
+                  'data' => null
+              ], 404);
+          }
+          
+          $smsTemplate->delete();
+          
+          return response()->json([
+              'success' => 1,
+              'error' => 0,
+              'message' => 'SMS Template is successfully deleted',
+              'data' => null
+          ], 200);
+          
+      } catch (\Throwable $th) {
+          // Log the exception for debugging purposes
+          Log::error('Error deleting SMS Template: ' . $th->getMessage(), [
+              'exception' => $th,
+              'request' => $request->all()
+          ]);
+          
+          return response()->json([
+              'success' => 0,
+              'error' => 1,
+              'message' => 'Error: ' . $th->getMessage(),
+              'data' => $th // Provide the full exception details for debugging
+          ], 500);
+      }
+  }
+  
+  
 }
