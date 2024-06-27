@@ -179,12 +179,7 @@ class SmsTemplateController
           ], 200);
           
       } catch (\Throwable $th) {
-          // Log the exception for debugging purposes
-          Log::error('Error deleting SMS Template: ' . $th->getMessage(), [
-              'exception' => $th,
-              'request' => $request->all()
-          ]);
-          
+          // Log the exception for debugging purpose        
           return response()->json([
               'success' => 0,
               'error' => 1,

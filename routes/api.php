@@ -29,8 +29,28 @@ Route::middleware([JwtMiddleware::class])->prefix('admin')->group(function () {
   Route::post('/auth/verifyJWT', [AuthController::class, 'verifyJWT']);
   Route::post('/auth/refreshJWT', [AuthController::class, 'refreshJWT']);
   //---> Reset Password Api Routes
+  Route::post('/user-profile', [AdminUserController::class, 'userProfile']);
+  Route::put('/edit-profile/{id}', [AdminUserController::class, 'editProfile']);
   Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+  Route::post('/get-all-user-module', [SystemModuleController::class, 'fetchUsersModule']);
+  Route::post('/get-all-assign-module', [SystemModuleController::class, 'getAllAssignModule']);
 });
+
+Route::prefix('staff-users')->group(function(){
+  // ---> Staff User Routes
+  Route::post('create-staff-user',[StaffUserController::class,'createStaffUser']);
+  Route::put('update-staff-user/{id}',[StaffUserController::class,'updateStaffUser']);
+  Route::get('get-all-staff-users',[StaffUserController::class,'getAllStaffUsers']);
+  Route::get('get-staff-user/{id}',[StaffUserController::class,'getStaffUserById']); 
+  Route::delete('delete-staff-user/{id}',[StaffUserController::class,'deleteStaffUser']);
+  Route::post('time-log/{id}',[StaffUserController::class,'StaffTimelog']);
+  Route::get('get-time-log/{id}',[StaffUserController::class,'getStaffTimelog']);
+  Route::get('get-time-log-by-date/{id}',[StaffUserController::class,'getStaffTimelogByDate']);
+  Route::post('get-time-log-by-range/{id}',[StaffUserController::class,'getStaffTimelogByRange']);
+  Route::post('emergency-image-log/{id}',[StaffUserController::class,'imagelog']);
+  Route::get('get-image-log/{id}',[StaffUserController::class,'getStaffImageLog']);  //not working
+});
+
 
 Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->prefix('admin')->group(function () {
     // --> Role route
@@ -40,7 +60,7 @@ Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->pr
     Route::post('/get-role-by-id/{id}', [RoleController::class, 'getRoleById']);
     Route::delete('/delete-role/{id}', [RoleController::class, 'deleteRole']);
     Route::post('/get-role-with-permission/{id}', [RoleController::class, 'getRoleWithPermissionById']);
-    Route::post('/assign-permissions-to-role/{roleId}', [RoleController::class, 'assignPermissionsToRoleById']);
+    Route::post('/assign-permissions-to-role/{id}', [RoleController::class, 'assignPermissionsToRoleById']);
     Route::post('/get-all-roles-with-permission', [RoleController::class, 'getAllRolesWithPermission']);
 
     //---> User Routes
@@ -49,12 +69,13 @@ Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->pr
     Route::post('/get-all-users', [AdminUserController::class, 'getAllUsers']);
     Route::post('/get-user-by-id/{id}', [AdminUserController::class, 'getUserById']);
     Route::delete('/delete-user/{id}', [AdminUserController::class, 'deleteUser']);
+    Route::put('/user/change-password/{id}', [AdminUserController::class, 'changeUserPassword']); 
     
 
     //--> Email Template
     Route::post('/create-email-template', [EmailTemplateController::class, 'createEmailTemplate']);
     Route::put('/update-email-template', [EmailTemplateController::class, 'updateEmailTemplate']);
-    Route::post('/get-email-template', [EmailTemplateController::class, 'getEmailTemplate']);
+    Route::post('/get-email-template/{id}', [EmailTemplateController::class, 'getEmailTemplate']);
     Route::post('/get-all-email-templates', [EmailTemplateController::class, 'getAllEmailTemplates']);
     Route::delete('/delete-email-template', [EmailTemplateController::class, 'deleteEmailTemplate']);
 
@@ -73,18 +94,4 @@ Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->pr
     Route::delete('/delete-module', [SystemModuleController::class, 'deleteModule']);
 });
 
-Route::prefix('staff-users')->group(function(){
-  // ---> Staff User Routes
-  Route::post('create-staff-user',[StaffUserController::class,'createStaffUser']);
-  Route::put('update-staff-user/{id}',[StaffUserController::class,'updateStaffUser']);
-  Route::get('get-all-staff-users',[StaffUserController::class,'getAllStaffUsers']);
-  Route::get('get-staff-user/{id}',[StaffUserController::class,'getStaffUserById']); 
-  Route::delete('delete-staff-user/{id}',[StaffUserController::class,'deleteStaffUser']);
-  Route::post('time-log/{id}',[StaffUserController::class,'StaffTimelog']);
-  Route::get('get-time-log/{id}',[StaffUserController::class,'getStaffTimelog']);
-  Route::get('get-time-log-by-date/{id}',[StaffUserController::class,'getStaffTimelogByDate']);
-  Route::post('get-time-log-by-range/{id}',[StaffUserController::class,'getStaffTimelogByRange']);
-  Route::post('emergency-image-log/{id}',[StaffUserController::class,'imagelog']);
-  Route::get('get-image-log/{id}',[StaffUserController::class,'getStaffImageLog']);  //not working
-});
 

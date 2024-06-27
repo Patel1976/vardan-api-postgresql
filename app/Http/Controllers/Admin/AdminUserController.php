@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Throwable;
 use App\Models\AdminUser;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Tymon\JWTAuth\Facades\JWTAuth;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Throwable;
 
 class AdminUserController
 {
@@ -22,8 +23,6 @@ class AdminUserController
             'email' => 'required|email|unique:admin_users|max:255',
             'password' => 'required|string|min:8|max:255',
             'phone' => 'required|string|max:20',
-            'role' => 'required|string|max:20'
-
         ]);
 
         if ($validator->fails()) {
@@ -36,18 +35,19 @@ class AdminUserController
                 ]
             ], 422);
         }
-
         try {
             $userExists = AdminUser::where('email', $request->email)->first();
             if (!$userExists) {
-                $uid = AdminUser::create([
+                $user = AdminUser::create([
                     'name' => $request->name,
                     'email' => $request->email,
                     'password' => bcrypt($request->password),
                     'phone' => $request->phone,
+                    'role' => $request->role
                 ]);
-                $role = Role::findByName($request->role);
-                $uid->assignRole($role);
+                if ($request->role) {
+                    $user->syncRoles([$request->role]);
+                }
                 return response()->json([
                     'success' => 1,
                     'error' => 0,
@@ -62,7 +62,7 @@ class AdminUserController
                     'data' => null
                 ], 409);
             }
-        } catch (\Throwable $th) {
+        } catch (Throwable $th) {
             return response()->json([
                 'success' => 0,
                 'error' => 1,
@@ -74,47 +74,57 @@ class AdminUserController
 
      //Edit existing user's Data
      public function updateUser(Request $request, $id)
-     {
-         try {
-             $user = AdminUser::findOrFail($id); // Check if the user exists
-     
-             // Update user details
-             $user->name = $request->input('name', $user->name);
-             $user->email = $request->input('email', $user->email);
-     
-             // Update password if provided and matches confirm_password
-             if ($request->has('password') && $request->input('password') === $request->input('confirm_password')) {
-                 $user->password = Hash::make($request->input('password'));
-             }
-     
-             $user->save();
-     
-             return response()->json([
-                 'success' => 1,
-                 'error' => 0,
-                 'message' => 'User updated successfully',
-                 'data' => $user
-             ], 200);
-         } catch (\Exception $e) {
-             return response()->json([
-                 'success' => 0,
-                 'error' => 1,
-                 'message' => 'Something went wrong: ' . $e->getMessage(),
-                 'data' => null
-             ], 500);
-         }
-     }
-     
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'string|max:255',
+            'phone' => 'string|max:20',
+            'role' => 'string|max:255',
+        ]);
 
-    //Fetch all users
-    public function getAllUsers()
-    { 
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Validation failed',
+                'data' => [
+                    'errors' => $validator->errors()
+                ]
+            ], 422);
+        }
         try {
-            $findAllUsers = AdminUser::all();            
+            $user = AdminUser::find($id);
+            $user->name = $request->name;
+            $user->phone = $request->phone;
+            $user->update();
+            $roleName = $request->role;
+            if ($roleName) {
+                $user->syncRoles([$roleName]); // Sync the new role
+            }
             return response()->json([
                 'success' => 1,
                 'error' => 0,
-                'message' => 'All Users :-',
+                'message' => 'User updated successfully',
+                'data' => null
+            ], 200);
+        } catch (Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Something went wrong',
+                'data' => null
+            ], 500);
+        }
+    } 
+
+    //Fetch all users
+    public function getAllUsers()
+    {
+        try {
+            $findAllUsers = AdminUser::with('userRoles')->get();
+            return response()->json([
+                'success' => 1,
+                'error' => 0,
+                'message' => '',
                 'data' => $findAllUsers
             ], 200);
         } catch (\Exception $e) {
@@ -130,49 +140,179 @@ class AdminUserController
 
     //Get user by ID
     public function getUserById($id)
-{
-    try {
-        $findUser = AdminUser::findOrFail($id);
-        return response()->json([
-            'success' => 1,
-            'error' => 0,
-            'message' => 'User found',
-            'data' => $findUser
-        ], 200);
-    } catch (ModelNotFoundException $e) {
-        return response()->json([
-            'success' => 0,
-            'error' => 1,
-            'message' => 'User not found',
-            'data' => null
-        ], 404);
-    } catch (Throwable $th) {
-        return response()->json([
-            'success' => 0,
-            'error' => 1,
-            'message' => 'Something went wrong',
-            'data' => null
-        ], 500);
-    }
-}
-
-    //Delete User
-    public function deleteUser(Request $request , $id)
     {
         try {
-            $bearerToken =  $request->header('Authorization');
-            $token = substr($bearerToken, 7);
-            $userId = JWTAuth::setToken($token)->toUser()->id;
             $findUser = AdminUser::find($id);
-            if($findUser === null){
+            if (!$findUser) {
                 return response()->json([
                     'success' => 0,
                     'error' => 1,
                     'message' => 'User not found',
                     'data' => null
-                ], 401);
+                ], 404);
             }
-            if($findUser->id === $userId){
+            $roleId = DB::table('model_has_roles')
+                ->where('model_id', $id)
+                ->pluck('role_id')
+                ->toArray();
+            $rolename = DB::table('roles')
+                ->where('id', $roleId)
+                ->pluck('name')
+                ->toArray();
+
+            $roleName = implode(', ', $rolename);
+
+            $userWithRole = $findUser->toArray();
+            $userWithRole['role'] = $roleName;
+
+            return response()->json([
+                'success' => 1,
+                'error' => 0,
+                'message' => '',
+                'data' => $userWithRole,
+                // 'role'=> $rolename,
+            ], 200);
+        } catch (Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Something went wrong',
+                'data' => null
+            ], 500);
+        }
+    }
+
+    public function userProfile(Request $request)
+    {
+        try {
+            $bearerToken = $request->header('Authorization');
+            $token = substr($bearerToken, 7);
+            $userId = JWTAuth::setToken($token)->toUser()->id;
+            $findUser = AdminUser::find($userId);
+            $userRoleId = DB::table('model_has_roles')->where('model_id', $userId)->pluck('role_id');
+            $userModules = DB::table('role_has_permissions')
+                ->select('permission_id', 'module')
+                ->where('role_id', $userRoleId)
+                ->get();
+            $response = [];
+            foreach ($userModules as $module) {
+                $decodedModule = json_decode($module->module, true);
+                $response[$module->permission_id] = $decodedModule;
+            }
+            if ($findUser) {
+                return response()->json([
+                    'success' => 1,
+                    'error' => 0,
+                    'message' => '',
+                    'data' => $findUser,
+                    'permissions' => $response,
+                    'role' => $userRoleId
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => 0,
+                    'error' => 1,
+                    'message' => 'User not found',
+                    'data' => null
+                ], 200);
+            }
+        } catch (Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Something went wrong',
+                'data' => null
+            ], 500);
+        }
+    }
+
+    public function editProfile(Request $request, $id)
+    {
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'string|max:255',
+            'phone' => 'string|max:20',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Validation failed',
+                'data' => [
+                    'errors' => $validator->errors()
+                ]
+            ], 422);
+        }
+        try {
+            $user = AdminUser::findOrFail($id);
+            $user->name = $request->name;
+            $user->email = $request->email;
+            $user->phone = $request->phone;
+            $user->update();
+            return response()->json([
+                'success' => 1,
+                'error' => 0,
+                'message' => 'User Profile successfully Edited',
+                'data' => $user
+            ], 200);
+        } catch (Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Somethings went wrong',
+                'data' => null
+            ], 500);
+        }
+    }
+
+    public function changeUserPassword(Request $request, $id)
+    {
+
+        $validator = Validator::make($request->all(), [
+            'password' => 'required|string|min:8|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Validation failed',
+                'data' => [
+                    'errors' => $validator->errors()
+                ]
+            ], 422);
+        }
+        try {
+            $user = AdminUser::findOrFail($id);
+            $user->password = bcrypt($request->password);
+            $user->update();
+            return response()->json([
+                'success' => 1,
+                'error' => 0,
+                'message' => 'Password has successfully updated',
+                'data' => $user
+            ], 200);
+        } catch (Throwable $th) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Somethings went wrong',
+                'data' => null
+            ], 500);
+        }
+    }
+
+
+    //Delete User
+    public function deleteUser(Request $request, $id)
+    {
+        try {
+            $bearerToken = $request->header('Authorization');
+            $token = substr($bearerToken, 7);
+            $userId = JWTAuth::setToken($token)->toUser()->id;
+            $findUser = AdminUser::find($id);
+            if ($findUser->id === $userId) {
                 return response()->json([
                     'success' => 0,
                     'error' => 1,
@@ -180,7 +320,7 @@ class AdminUserController
                     'data' => null
                 ], 403);
             }
-            if($findUser->id === 1){
+            if ($findUser->id === 1) {
                 return response()->json([
                     'success' => 0,
                     'error' => 1,
@@ -188,6 +328,7 @@ class AdminUserController
                     'data' => null
                 ], 403);
             }
+            if ($findUser) {
                 $findUser->delete();
                 return response()->json([
                     'success' => 1,
@@ -195,7 +336,15 @@ class AdminUserController
                     'message' => 'Successfully Removed',
                     'data' => null
                 ], 200);
-        } catch (\Throwable $th) {
+            } else {
+                return response()->json([
+                    'success' => 0,
+                    'error' => 1,
+                    'message' => 'User not found',
+                    'data' => null
+                ], 401);
+            }
+        } catch (Throwable $th) {
             return response()->json([
                 'success' => 0,
                 'error' => 1,
