@@ -6,17 +6,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::create('staff_emergency_logs', function (Blueprint $table) {
             $table->id();
             $table->integer('user_id');
-            $table->binary('image_logs')->nullable();
+            $table->string('image_path');
+            $table->string('description');
             $table->timestamps();
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::dropIfExists('staff_emergency_logs');

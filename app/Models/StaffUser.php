@@ -24,4 +24,11 @@ class StaffUser extends Model
             $model->uuid = (string) Str::uuid();
         });
     }
+
+    public function images()
+{
+    return $this->hasMany(Staff_emergency_logs::class);
 }
+
+}
+

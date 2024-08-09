@@ -5,12 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class StaffEmergencyLog extends Model
+class Staff_emergency_logs extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'image_logs',
+        'image_path',
+        'description',
     ];
 }
