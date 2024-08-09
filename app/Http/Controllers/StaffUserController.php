@@ -339,38 +339,38 @@ class StaffUserController
     }
   }
 
-  // public function CreateImagelog(Request $request)
-  // {
-  //   // Validate the request
-  //   $validator = Validator::make($request->all(), [
-  //     'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-  //     'user_id' => 'required|exists:staff_users,id',
-  //     'description' => 'nullable|string',
-  //   ]);
+  public function CreateImagelog(Request $request)
+  {
+    // Validate the request
+    $validator = Validator::make($request->all(), [
+      'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+      'user_id' => 'required|exists:staff_users,id',
+      'description' => 'nullable|string',
+    ]);
 
-  //   if ($validator->fails()) {
-  //     return response()->json(['error' => $validator->errors()], 422);
-  //   }
+    if ($validator->fails()) {
+      return response()->json(['error' => $validator->errors()], 422);
+    }
 
-  //   if ($request->file('image')) {
-  //     $image = $request->file('image');
-  //     $path = $image->store('images/' . $request->user_id, 'public');
-  //     $imageUrl = url('storage/' . $path); 
+    if ($request->file('image')) {
+      $image = $request->file('image');
+      $path = $image->store('images/' . $request->user_id, 'public');
+      $imageUrl = url('storage/' . $path);
 
-  //     $log = Staff_emergency_logs::create([
-  //       'user_id' => $request->user_id,
-  //       'image_path' => $imageUrl, 
-  //       'description' => $request->description,
-  //     ]);
+      $log = Staff_emergency_logs::create([
+        'user_id' => $request->user_id,
+        'image_path' => $imageUrl,
+        'description' => $request->description,
+      ]);
 
-  //     return response()->json([
-  //       'message' => 'Image and log saved successfully',
-  //       'log' => $log,
-  //     ], 201);
-  //   }
+      return response()->json([
+        'message' => 'Image and log saved successfully',
+        'log' => $log,
+      ], 201);
+    }
 
-  //   return response()->json(['error' => 'Image upload failed'], 500);
-  // }
+    return response()->json(['error' => 'Image upload failed'], 500);
+  }
 
   // public function getStaffImageLog(Request $request , $id)
   // {
@@ -401,13 +401,12 @@ class StaffUserController
   //   ], 200);
   // }
 
-  public function getStaffImageLog(Request $request)
-  {
 
+  public function getAllStaffImageLog(Request $request)
+  {
     $validator = Validator::make($request->all(), [
-      'user_id' => 'sometimes|exists:staff_users,id',
-      'start_date' => 'sometimes|date',
-      'end_date' => 'sometimes|date|after_or_equal:start_date',
+      'start_date' => 'sometimes|nullable|date',
+      'end_date' => 'sometimes|nullable|date|after_or_equal:start_date',
       'page' => 'sometimes|integer',
       'per_page' => 'sometimes|integer|min:1',
     ]);
@@ -418,15 +417,12 @@ class StaffUserController
 
     $query = Staff_emergency_logs::query();
 
-    if ($request->has('user_id')) {
-      $query->where('user_id', $request->user_id);
+    if (!empty($request->start_date)) {
+      $query->whereDate('created_at', '>=', $request->start_date);
     }
 
-    if ($request->has('start_date')) {
-      $query->where('created_at', '>=', $request->start_date);
-    }
-    if ($request->has('end_date')) {
-      $query->where('created_at', '<=', $request->end_date);
+    if (!empty($request->end_date)) {
+      $query->whereDate('created_at', '<=', $request->end_date);
     }
 
     $perPage = $request->input('per_page', 8);
@@ -434,7 +430,7 @@ class StaffUserController
     $images = $query->paginate($perPage);
 
     $images->getCollection()->transform(function ($image) {
-      $image->image_path = url($image->image_path); 
+      $image->image_path = url($image->image_path);
       return $image;
     });
 
@@ -448,4 +444,48 @@ class StaffUserController
     ], 200);
   }
 
+
+  public function getStaffImageLog(Request $request, $id)
+  {
+    $validator = Validator::make($request->all(), [
+      'start_date' => 'sometimes|nullable|date',
+      'end_date' => 'sometimes|nullable|date|after_or_equal:start_date',
+      'page' => 'sometimes|integer',
+      'per_page' => 'sometimes|integer|min:1',
+    ]);
+
+    if ($validator->fails()) {
+      return response()->json(['error' => $validator->errors()], 422);
+    }
+
+    $query = Staff_emergency_logs::query();
+
+    $query->where('user_id', $id);
+
+    if (!empty($request->start_date)) {
+      $query->whereDate('created_at', '>=', $request->start_date);
+    }
+
+    if (!empty($request->end_date)) {
+      $query->whereDate('created_at', '<=', $request->end_date);
+    }
+
+    $perPage = $request->input('per_page', 8);
+
+    $images = $query->paginate($perPage);
+
+    $images->getCollection()->transform(function ($image) {
+      $image->image_path = url($image->image_path);
+      return $image;
+    });
+
+    if ($images->isEmpty()) {
+      return response()->json(['message' => 'No images found'], 300);
+    }
+
+    return response()->json([
+      'message' => 'Images retrieved successfully',
+      'images' => $images,
+    ], 200);
+  }
 }

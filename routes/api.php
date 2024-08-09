@@ -41,7 +41,8 @@ Route::middleware([JwtMiddleware::class])->prefix('admin')->group(function () {
 
 Route::prefix('staff-users')->group(function () {
   Route::post('/upload-emergency-log', [StaffUserController::class, 'CreateImagelog']);
-  Route::post('/get-emergency-log', [StaffUserController::class, 'getStaffImageLog']);
+  Route::post('/get-all-emergency-log', [StaffUserController::class, 'getAllStaffImageLog']);
+  Route::post('/get-emergency-log/{id}', [StaffUserController::class, 'getStaffImageLog']);
 });
 
 Route::middleware([JwtMiddleware::class])->prefix('staff-users')->group(function () {
