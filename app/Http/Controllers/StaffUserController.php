@@ -479,10 +479,6 @@ class StaffUserController
       return $image;
     });
 
-    if ($images->isEmpty()) {
-      return response()->json(['message' => 'No images found'], 300);
-    }
-
     return response()->json([
       'message' => 'Images retrieved successfully',
       'images' => $images,
