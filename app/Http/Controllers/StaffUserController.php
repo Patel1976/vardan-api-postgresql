@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+
 
 class StaffUserController
 {
@@ -484,4 +486,138 @@ class StaffUserController
       'images' => $images,
     ], 200);
   }
+
+  //Gallery Log
+  public function createGalleryLog(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'user_id' => 'required|exists:staff_users,id',
+        'description' => 'string',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['error' => $validator->errors()], 422);
+    }
+
+    if ($request->hasFile('image')) {
+        $image = $request->file('image');
+
+        try {
+            $path = $image->store('gallery_images/' . $request->user_id, 'public');
+            $imageUrl = url('storage/' . $path);
+
+            // Create a new gallery log entry
+            $log = Staff_emergency_logs::create([
+                'user_id' => $request->user_id,
+                'image_path' => $imageUrl,
+                'description' => $request->description,
+            ]);
+
+            return response()->json([
+                'message' => 'Gallery log saved successfully',
+                'log' => $log,
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Image upload failed'], 500);
+        }
+    }
+
+    return response()->json(['error' => 'Image upload failed'], 500);
 }
+
+  
+  // Get All Gallery Logs with Images
+
+  public function getAllGalleryLogs(Request $request)
+  {
+      // Validate the incoming request
+      $validator = Validator::make($request->all(), [
+          'start_date' => 'sometimes|nullable|date',
+          'end_date' => 'sometimes|nullable|date|after_or_equal:start_date',
+          'page' => 'sometimes|integer',
+          'per_page' => 'sometimes|integer|min:1',
+          'name' => 'sometimes|string',
+      ]);
+  
+      if ($validator->fails()) {
+          return response()->json(['error' => $validator->errors()], 422);
+      }
+  
+      $query = Staff_emergency_logs::query();
+  
+      // Apply date filters only if both dates are provided
+      if (!empty($request->start_date) && !empty($request->end_date)) {
+          $query->whereDate('created_at', '>=', $request->start_date)
+                ->whereDate('created_at', '<=', $request->end_date);
+      }
+  
+      // Apply name filter
+      if (!empty($request->name)) {
+          $query->whereHas('staffUser', function($q) use ($request) {
+              $q->where('name', 'like', '%' . $request->name . '%');
+          });
+      }
+  
+      $perPage = $request->input('per_page', 8);
+      $logs = $query->paginate($perPage);
+  
+      if ($logs->total() === 0) {
+          return response()->json(['message' => 'No images found'], 404);
+      }
+  
+      // Transform the image paths
+      $logs->getCollection()->transform(function ($log) {
+          $log->image_path = url($log->image_path);
+          return $log;
+      });
+  
+      return response()->json([
+          'message' => 'Images retrieved successfully',
+          'images' => $logs,
+      ], 200);
+  }
+  
+
+public function getGalleryLogById(Request $request, $id)
+  {
+    $validator = Validator::make($request->all(), [
+      'start_date' => 'sometimes|nullable|date',
+      'end_date' => 'sometimes|nullable|date|after_or_equal:start_date',
+      'page' => 'sometimes|integer',
+      'per_page' => 'sometimes|integer|min:1',
+    ]);
+
+    if ($validator->fails()) {
+      return response()->json(['error' => $validator->errors()], 422);
+    }
+
+    $query = Staff_emergency_logs::query();
+
+    $query->where('user_id', $id);
+
+    if (!empty($request->start_date)) {
+      $query->whereDate('created_at', '>=', $request->start_date);
+    }
+
+    if (!empty($request->end_date)) {
+      $query->whereDate('created_at', '<=', $request->end_date);
+    }
+
+    $perPage = $request->input('per_page', 8);
+
+    $images = $query->paginate($perPage);
+
+    $images->getCollection()->transform(function ($image) {
+      $image->image_path = url($image->image_path);
+      return $image;
+    });
+
+    return response()->json([
+      'message' => 'Images retrieved successfully',
+      'images' => $images,
+    ], 200);
+  }
+  
+} 

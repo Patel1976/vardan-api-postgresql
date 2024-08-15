@@ -14,4 +14,10 @@ class Staff_emergency_logs extends Model
         'image_path',
         'description',
     ];
+
+    public function staffUser()
+    {
+        return $this->belongsTo(StaffUser::class, 'user_id');
+    }
+
 }

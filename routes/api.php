@@ -39,10 +39,18 @@ Route::middleware([JwtMiddleware::class])->prefix('admin')->group(function () {
   Route::post('/get-all-assign-module', [SystemModuleController::class, 'getAllAssignModule']);
 });
 
+//--->Emergency Log
 Route::prefix('staff-users')->group(function () {
   Route::post('/upload-emergency-log', [StaffUserController::class, 'CreateImagelog']);
   Route::post('/get-all-emergency-log', [StaffUserController::class, 'getAllStaffImageLog']);
   Route::post('/get-emergency-log/{id}', [StaffUserController::class, 'getStaffImageLog']);
+});
+
+//--->Gallery Log
+Route::prefix('staff-users')->group(function(){
+  Route::post('/create-gallery-log', [StaffUserController::class, 'createGalleryLog']);
+  Route::post('/get-all-gallery-logs', [StaffUserController::class, 'getAllGalleryLogs']);
+  Route::post('/get-gallery-log/{id}', [StaffUserController::class, 'getGalleryLogById']); 
 });
 
 Route::middleware([JwtMiddleware::class])->prefix('staff-users')->group(function () {
