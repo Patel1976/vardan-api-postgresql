@@ -18,11 +18,13 @@ class StaffUserController
   {
     $validator = Validator::make($request->all(), [
       'name' => 'required|string|max:255',
-      'email' => 'email|unique:staff_users|max:255',
+      'email' => 'email|nullable|unique:staff_users|max:255',
       'phone' => 'required|string|max:20|unique:staff_users',
-      'mpin' => 'string|max:6',
+      'mpin' => 'nullable|string|max:6',
       'address' => 'required|string|max:500',
-      'status' => 'boolean',
+      'status' => 'boolean|nullable',
+      'department' => 'nullable|string|max:255',
+      'image' => 'nullable|string',
     ]);
 
     if ($validator->fails()) {
@@ -44,8 +46,9 @@ class StaffUserController
         'phone' => $request->phone,
         'mpin' => $request->mpin,
         'address' => $request->address,
-        'status' => $request->status,
-        'timestamp' => now(),
+        'status' => $request->status ?? 1,
+        'department' => $request->department,
+        'image' => $request->image,
       ]);
 
       return response()->json([
@@ -76,11 +79,14 @@ class StaffUserController
       ], 404);
     }
     $validator = Validator::make($request->all(), [
-      'name' => 'string|max:255',
-      'phone' => 'string|max:20|unique:staff_users,phone,' . $id,
-      'mpin' => 'string|max:6',
-      'address' => 'string|max:500',
-      'status' => 'boolean',
+      'name' => 'nullable|string|max:255',
+      'email' => 'nullable|email|unique:staff_users,email,' . $id,
+      'phone' => 'nullable|string|max:20|unique:staff_users,phone,' . $id,
+      'mpin' => 'nullable|string|max:6',
+      'address' => 'nullable|string|max:500',
+      'status' => 'nullable|boolean',
+      'department' => 'nullable|string|max:255',
+      'image' => 'nullable|string',
     ]);
     if ($validator->fails()) {
       return response()->json([
@@ -91,13 +97,14 @@ class StaffUserController
       ], 422);
     }
     try {
-
       $staffUser->name = $request->input('name', $staffUser->name);
-      $staffUser->phone = $request->input('phone', $staffUser->phone);
       $staffUser->email = $request->input('email', $staffUser->email);
+      $staffUser->phone = $request->input('phone', $staffUser->phone);
       $staffUser->mpin = $request->input('mpin', $staffUser->mpin);
       $staffUser->address = $request->input('address', $staffUser->address);
       $staffUser->status = $request->input('status', $staffUser->status);
+      $staffUser->department = $request->input('department', $staffUser->department);
+      $staffUser->image = $request->input('image', $staffUser->image);
       $staffUser->save();
 
       return response()->json([
@@ -108,6 +115,7 @@ class StaffUserController
       ], 200);
 
     } catch (\Throwable $th) {
+      Log::error($th);
       return response()->json([
         'success' => false,
         'error' => true,
@@ -116,7 +124,6 @@ class StaffUserController
       ], 500);
     }
   }
-
 
   public function getAllStaffUsers()
   {
