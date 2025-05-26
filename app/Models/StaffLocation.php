@@ -7,7 +7,7 @@ use MongoDB\BSON\UTCDateTime;
 
 class StaffLocation extends Model
 {
-    protected $collection = 'staff_locations';
+    protected $collection = 'locations';
 
     protected $client;
 

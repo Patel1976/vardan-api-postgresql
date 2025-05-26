@@ -14,6 +14,8 @@ class StaffUser extends Model
         'mpin',
         'address',
         'status',
+        'department',
+        'image',
     ];
 
     protected static function boot()

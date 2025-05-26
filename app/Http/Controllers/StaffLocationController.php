@@ -16,18 +16,17 @@ class StaffLocationController
         $this->staffLocation = $staffLocation;
     }
 
-    public function getStaffLocation(Request $request)
+    public function getStaffLocation(Request $request, $uuid)
     {
         try {
             // Validate the request data
             $validatedData = $request->validate([
-                'uuid' => 'sometimes|string',
                 'start_date' => 'sometimes|date',
                 'end_date' => 'sometimes|date',
             ]);
     
             // Build the query based on the filters
-            $match = [];
+            $match = ['uuid' => $uuid];
             
             if (isset($validatedData['start_date']) && !empty($validatedData['start_date'])) {
                 $startDate = Carbon::parse($validatedData['start_date'])->startOfDay();
