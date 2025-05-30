@@ -232,6 +232,7 @@ class AdminUserController
         $validator = Validator::make($request->all(), [
             'name' => 'string|max:255',
             'phone' => 'string|max:20',
+            'image' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -249,6 +250,7 @@ class AdminUserController
             $user->name = $request->name;
             $user->email = $request->email;
             $user->phone = $request->phone;
+            $user->image = $request->image;
             $user->update();
             return response()->json([
                 'success' => 1,

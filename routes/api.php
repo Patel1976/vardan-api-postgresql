@@ -11,6 +11,7 @@ use App\Http\Controllers\StaffLocationController;
 use App\Http\Middleware\RoleOrPermissionMiddleware;
 use App\Http\Controllers\StaffUserController;
 use App\Http\Controllers\AppAuthController;
+use App\Http\Controllers\Admin\DashboardController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -114,6 +115,11 @@ Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->pr
   Route::post('/get-module-by-id', [SystemModuleController::class, 'getModuleById']);
   Route::post('/get-all-module', [SystemModuleController::class, 'getAllModule']);
   Route::delete('/delete-module', [SystemModuleController::class, 'deleteModule']);
+
+  // Dashboard
+  Route::get('/stats', [DashboardController::class, 'stats']);
+  Route::get('/recent-activities', [DashboardController::class, 'recentActivities']);
+  Route::get('/emergency-notifications', [DashboardController::class, 'emergencyNotifications']);
 });
 
 
