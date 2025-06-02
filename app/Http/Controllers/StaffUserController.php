@@ -500,6 +500,7 @@ class StaffUserController
     }
 
     $query = Staff_emergency_logs::query();
+    exit;
 
     if (!empty($request->start_date)) {
       $query->whereDate('created_at', '>=', $request->start_date);
