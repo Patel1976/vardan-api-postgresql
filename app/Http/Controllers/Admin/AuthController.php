@@ -18,41 +18,63 @@ class AuthController
 
     //Login
     public function login(Request $request)
-    {
-        $credentials = $request->only('email', 'password');
-        try {
-            if (!Auth::attempt($credentials)) {
-                return response()->json([
-                    'success' => 0,
-                    'error' => 1,
-                    'message' => 'Incorrect email or password',
-                    'data' => null
-                ], 401);
-            }
-            $user = Auth::user();
-            $token = JWTAuth::fromUser($user);
-            if (!$token) {
-                return response()->json([
-                    'success' => 0,
-                    'error' => 1,
-                    'message' => 'Failed to generate token',
-                    'data' => null
-                ], 500);
-            }
-            $response = response()->json([
-                'success' => 1,
-                'error' => 0,
-                'message' => 'Login Success',
+{
+    $credentials = $request->only('email', 'password');
+    try {
+        $user = \App\Models\AdminUser::where('email', $credentials['email'])->first();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Validation failed',
                 'data' => [
-                    'token' => $token,
-                    'userData' => $user,
+                    'errors' => [
+                        'email' => ['Email is incorrect.']
+                    ]
                 ]
-            ], 200);
-            return $response;
-        } catch (\Throwable $th) {
-            return response()->json("Login Failed " . $th->getMessage(), 500);
+            ], 401);
         }
+
+        if (!\Hash::check($credentials['password'], $user->password)) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Validation failed',
+                'data' => [
+                    'errors' => [
+                        'password' => ['Password is incorrect.']
+                    ]
+                ]
+            ], 401);
+        }
+
+        // ✅ Use the $user you already retrieved
+        $token = JWTAuth::fromUser($user);
+        
+        if (!$token) {
+            return response()->json([
+                'success' => 0,
+                'error' => 1,
+                'message' => 'Failed to generate token',
+                'data' => null
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => 1,
+            'error' => 0,
+            'message' => 'Login Success',
+            'data' => [
+                'token' => $token,
+                'userData' => $user,
+            ]
+        ], 200);
+    } catch (\Throwable $th) {
+        return response()->json("Login Failed " . $th->getMessage(), 500);
     }
+}
+
 
     //Logout
     public function logout()
