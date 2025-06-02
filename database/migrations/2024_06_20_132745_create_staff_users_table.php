@@ -17,6 +17,8 @@ return new class extends Migration
           $table->string('mpin')->nullable();
           $table->string('address');
           $table->boolean('status')->nullable();
+          $table->string('department')->nullable();
+          $table->text('image')->nullable();
           $table->timestamps();
         });
     }

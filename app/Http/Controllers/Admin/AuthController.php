@@ -124,7 +124,7 @@ class AuthController
     {
         $email = $request->email;
         $token = uniqid();
-        $domain = env('FORNTEND_URL') . 'forget-password/' . $token;
+        $domain = env('FORNTEND_URL') . 'reset-password/' . $token;
         $findEmail = AdminUser::where('email', $email)->first();
         try {
             if ($findEmail) {
