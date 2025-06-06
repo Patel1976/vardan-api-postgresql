@@ -4,14 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class StaffUser extends Model
+class StaffUser extends Model implements JWTSubject
 {
     protected $fillable = [
         'name',
         'email',
         'phone',
         'mpin',
+        'otp',
         'address',
         'status',
         'department',
@@ -28,9 +30,19 @@ class StaffUser extends Model
     }
 
     public function images()
-{
-    return $this->hasMany(Staff_emergency_logs::class);
-}
+    {
+        return $this->hasMany(Staff_emergency_logs::class);
+    }
+    
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims()
+    {
+        return [];
+    }
 
 }
 

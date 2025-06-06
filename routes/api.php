@@ -26,8 +26,20 @@ Route::prefix('admin')->group(function () {
 
 Route::prefix('app')->group(function () {
   //---> Authentication Routes
-  Route::post('/auth/login', [AppAuthController::class, 'login']);
-  //---> Forget Password Routes
+  Route::post('/auth/login', [AppAuthController::class, 'loginWithOtp']);
+  Route::post('/auth/request-otp', [AppAuthController::class, 'requestOtp']);
+});
+Route::middleware([JwtMiddleware::class])->prefix('app')->group(function () {
+  //---> Authentication Routes
+  Route::post('/auth/logout', [AppAuthController::class, 'logout']);
+  Route::post('/auth/verifyJWT', [AppAuthController::class, 'verifyJWT']);
+  Route::post('/auth/refreshJWT', [AppAuthController::class, 'refreshJWT']);
+  //---> Create Timelogs Routes
+  Route::post('/add-timelogs', [StaffUserController::class, 'createTimeLogs']);
+  Route::post('/timelogs/{id}', [StaffUserController::class, 'StaffTimelog']);
+  Route::post('/staff-timelog-range', [StaffUserController::class, 'StaffTimelogRange']);
+  //---> Create Location Route
+  Route::post('/add-staff-location', [StaffLocationController::class, 'store']);
 });
 
 // without spatie middleware

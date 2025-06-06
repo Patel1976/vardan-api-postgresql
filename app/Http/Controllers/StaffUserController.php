@@ -456,36 +456,6 @@ class StaffUserController
     return response()->json(['error' => 'Image upload failed'], 500);
   }
 
-  // public function getStaffImageLog(Request $request , $id)
-  // {
-  //   error_log('hello');
-  //   // Validate the request
-  //   $validator = Validator::make($request->all(), [
-  //     'user_id' => 'required|exists:staff_users,id',
-  //   ]);
-  //   if ($validator->fails()) {
-  //     return response()->json(['error' => $validator->errors()], 422);
-  //   }
-
-  //   // Retrieve images for the given user_id
-  //   $images = Staff_emergency_logs::where('user_id', $request->$id)
-  //     ->get()
-  //     ->map(function ($image) {
-  //       $image->image_path = url($image->image_path); // Make sure this URL is accessible
-  //       return $image;
-  //     });
-
-  //   if ($images->isEmpty()) {
-  //     return response()->json(['message' => 'No images found for this user'], 404);
-  //   }
-
-  //   return response()->json([
-  //     'message' => 'Images retrieved successfully',
-  //     'images' => $images,
-  //   ], 200);
-  // }
-
-
   public function getAllStaffImageLog(Request $request)
   {
     $validator = Validator::make($request->all(), [
@@ -499,8 +469,7 @@ class StaffUserController
       return response()->json(['error' => $validator->errors()], 422);
     }
 
-    $query = Staff_emergency_logs::query();
-    exit;
+    $query = Staff_emergency_logs::with('staffUser');
 
     if (!empty($request->start_date)) {
       $query->whereDate('created_at', '>=', $request->start_date);
@@ -517,23 +486,18 @@ class StaffUserController
     $images->getCollection()->transform(function ($image) {
       return [
         'id' => $image->id,
-        'user_id' => $image->user_id,
+        'staff_name' => optional($image->staffUser)->name,
         'image' => $image->image_path,
         'description' => $image->description,
         'created_at' => $image->created_at,
       ];
     });
 
-    if ($images->isEmpty()) {
-      return response()->json(['message' => 'No images found'], 404);
-    }
-
     return response()->json([
       'message' => 'Images retrieved successfully',
       'images' => $images,
     ], 200);
   }
-
 
   public function getStaffImageLog(Request $request, $id)
   {
@@ -548,7 +512,7 @@ class StaffUserController
       return response()->json(['error' => $validator->errors()], 422);
     }
 
-    $query = Staff_emergency_logs::query();
+    $query = Staff_emergency_logs::with('staffUser')->where('user_id', $id);
 
     $query->where('user_id', $id);
 
@@ -565,8 +529,13 @@ class StaffUserController
     $images = $query->paginate($perPage);
 
     $images->getCollection()->transform(function ($image) {
-      $image->image_path = url($image->image_path);
-      return $image;
+      return [
+        'id' => $image->id,
+        'staff_name' => optional($image->staffUser)->name,
+        'image' => $image->image_path,
+        'description' => $image->description,
+        'created_at' => $image->created_at,
+      ];
     });
 
     return response()->json([
@@ -577,7 +546,7 @@ class StaffUserController
 
   //Gallery Log
   public function createGalleryLog(Request $request)
-{
+  {
     $validator = Validator::make($request->all(), [
         'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         'user_id' => 'required|exists:staff_users,id',
@@ -613,7 +582,7 @@ class StaffUserController
     }
 
     return response()->json(['error' => 'Image upload failed'], 500);
-}
+  }
 
   
   // Get All Gallery Logs with Images
@@ -708,4 +677,233 @@ public function getGalleryLogById(Request $request, $id)
     ], 200);
   }
   
+  // Add Staff Timelogs
+  public function createTimeLogs(Request $request)
+  {
+    $validator = Validator::make($request->all(), [
+        'user_id' => 'required|integer|exists:staff_users,id',
+        'type' => 'required|in:check-in,check-out',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => 0,
+            'message' => 'Validation error',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    try {
+        $timelog = StaffTimelog::create([
+            'user_id' => $request->user_id,
+            'logs' => now(),
+            'type' => $request->type,
+        ]);
+
+        return response()->json([
+            'success' => 1,
+            'error' => 0,
+            'message' => 'Timelog recorded successfully',
+            'data' => null
+        ]);
+    } catch (Throwable $th) {
+        return response()->json([
+            'success' => 0,
+            'error' => 1,
+            'message' => 'An unexpected error occurred. Please try again later.',
+            'data' => null
+        ], 500);
+    }
+  }
+
+  public function StaffTimelog(int $userId)
+  {
+    try {
+        $staff = StaffUser::find($userId);
+
+        if (!$staff) {
+            return response()->json([
+                'success' => 0,
+                'error'   => 1,
+                'message' => 'Staff not found',
+                'data'    => null,
+            ], 404);
+        }
+        $today      = Carbon::today();
+        $start      = $today->copy()->startOfDay();
+        $end        = $today->copy()->endOfDay();
+
+        $logs = DB::table('staff_timelogs')
+            ->where('user_id', $userId)
+            ->whereBetween('logs', [$start, $end])
+            ->orderBy('logs')
+            ->get();
+
+        if ($logs->isEmpty()) {
+            return response()->json([
+                'success' => 1,
+                'data'    => [[
+                    'date'            => $today->toDateString(),
+                    'staff_name'      => $staff->name,
+                    'check_in'        => null,
+                    'check_out'       => null,
+                    'punches'         => [],
+                    'formatted_punches' => '',
+                    'total_hours'     => '00:00',
+                    'break_hours'     => '00:00',
+                ]],
+            ]);
+        }
+        $totalWork   = 0;
+        $totalBreak  = 0;
+        $pendingIn   = null;
+        $lastOut     = null;
+        $punchArray  = [];
+
+        foreach ($logs as $row) {
+            $time = Carbon::parse($row->logs);
+            $punchArray[] = [
+                'type'      => $row->type,
+                'time'      => $time->format('H:i:s'),
+                'timestamp' => $row->logs,
+            ];
+
+            if ($row->type === 'check-in') {
+                if ($lastOut) {
+                    $gap = $lastOut->diffInSeconds($time);
+                    if ($gap > 0) {
+                        $totalBreak += $gap;
+                    }
+                }
+                $pendingIn = $time;
+            } elseif ($row->type === 'check-out') {
+                if ($pendingIn) {
+                    $work = $pendingIn->diffInSeconds($time);
+                    if ($work > 0) {
+                        $totalWork += $work;
+                    }
+                    $pendingIn = null;
+                }
+                $lastOut = $time;
+            }
+        }
+        if ($pendingIn) {
+            $now   = Carbon::now();
+            $work  = $pendingIn->diffInSeconds($now);
+            $totalWork += $work;
+        }
+        $fmtPunches = collect($punchArray)
+            ->map(fn ($p) => "{$p['time']} " . str_replace('check-', '', $p['type']))
+            ->implode(', ');
+
+        return response()->json([
+            'success' => 1,
+            'data' => [[
+                'date'              => $today->toDateString(),
+                'staff_name'        => $staff->name,
+                'check_in'          => optional($logs->firstWhere('type', 'check-in'))->logs
+                                        ? Carbon::parse($logs->firstWhere('type', 'check-in')->logs)->format('H:i:s')
+                                        : null,
+                'check_out'         => optional($logs->where('type', 'check-out')->last())->logs
+                                        ? Carbon::parse($logs->where('type', 'check-out')->last()->logs)->format('H:i:s')
+                                        : null,
+                'punches'           => $punchArray,
+                'formatted_punches' => $fmtPunches,
+                'total_hours'       => $this->formatSecondsToHoursMinutes($totalWork),
+                'break_hours'       => $this->formatSecondsToHoursMinutes($totalBreak),
+            ]],
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => 0,
+            'error'   => 1,
+            'message' => 'Something went wrong',
+            'data'    => null,
+        ], 500);
+    }
+  }
+
+  public function StaffTimelogRange(Request $request)
+  {
+    try {
+        $request->validate([
+            'user_id'    => 'required|integer|exists:staff_users,id',
+            'start_date' => 'required|date',
+            'end_date'   => 'required|date|after_or_equal:start_date',
+        ]);
+        $userId = $request->user_id;
+        $staff  = StaffUser::find($userId);
+        $start = Carbon::parse($request->start_date)->startOfDay();
+        $end   = Carbon::parse($request->end_date)->endOfDay();
+        $rows = DB::table('staff_timelogs')
+            ->where('user_id', $userId)
+            ->whereBetween('logs', [$start, $end])
+            ->orderBy('logs')
+            ->get();
+        $byDate = $rows->groupBy(fn ($r) => Carbon::parse($r->logs)->toDateString());
+        $dates  = Carbon::parse($request->start_date)
+                    ->daysUntil(Carbon::parse($request->end_date));
+        $data = [];
+        foreach ($dates as $date) {
+            $day   = $date->toDateString();
+            $logs  = $byDate[$day] ?? collect();
+            $work  = 0;
+            $break = 0;
+            $in    = null;
+            $out   = null;
+            $punch = [];
+            foreach ($logs as $log) {
+                $ts = Carbon::parse($log->logs);
+                $punch[] = [
+                    'type'      => $log->type,
+                    'time'      => $ts->format('H:i:s'),
+                    'timestamp' => $log->logs,
+                ];
+                if ($log->type === 'check-in') {
+                    if ($out) $break += $out->diffInSeconds($ts);
+                    $in  = $ts;
+                    $out = null;
+                }
+                if ($log->type === 'check-out' && $in) {
+                    $work += $in->diffInSeconds($ts);
+                    $out  = $ts;
+                    $in   = null;
+                }
+            }
+            if ($in) {
+                $work += $in->diffInSeconds(
+                    Carbon::parse($day)->isToday() ? Carbon::now() : Carbon::parse($day)->endOfDay()
+                );
+            }
+            // Only add to $data if there is actual data
+            if (count($punch) > 0 || $work > 0 || $break > 0) {
+                $data[] = [
+                    'date'              => $day,
+                    'staff_name'        => $staff->name,
+                    'check_in'          => optional($logs->firstWhere('type','check-in'))->logs
+                                            ? Carbon::parse(optional($logs->firstWhere('type','check-in'))->logs)->format('H:i:s')
+                                            : null,
+                    'check_out'         => optional($logs->where('type','check-out')->last())->logs
+                                            ? Carbon::parse(optional($logs->where('type','check-out')->last())->logs)->format('H:i:s')
+                                            : null,
+                    'punches'           => $punch,
+                    'formatted_punches' => collect($punch)
+                                            ->map(fn($p)=>"{$p['time']} ".str_replace('check-','',$p['type']))
+                                            ->implode(', '),
+                    'total_hours'       => $this->formatSecondsToHoursMinutes($work),
+                    'break_hours'       => $this->formatSecondsToHoursMinutes($break),
+                ];
+            }
+        }
+        return response()->json(['success' => 1, 'data' => $data]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => 0,
+            'error'   => 1,
+            'message' => 'Something went wrong',
+            'details' => $e->getMessage(),
+            'data'    => null,
+        ], 500);
+    }
+  }
 } 
