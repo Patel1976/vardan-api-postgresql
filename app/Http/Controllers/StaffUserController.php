@@ -543,47 +543,6 @@ class StaffUserController
       'images' => $images,
     ], 200);
   }
-
-  //Gallery Log
-  public function createGalleryLog(Request $request)
-  {
-    $validator = Validator::make($request->all(), [
-        'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-        'user_id' => 'required|exists:staff_users,id',
-        'description' => 'string',
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json(['error' => $validator->errors()], 422);
-    }
-
-    if ($request->hasFile('image')) {
-        $image = $request->file('image');
-
-        try {
-            $path = $image->store('gallery_images/' . $request->user_id, 'public');
-            $imageUrl = url('storage/' . $path);
-
-            // Create a new gallery log entry
-            $log = Staff_emergency_logs::create([
-                'user_id' => $request->user_id,
-                'image_path' => $imageUrl,
-                'description' => $request->description,
-            ]);
-
-            return response()->json([
-                'message' => 'Gallery log saved successfully',
-                'log' => $log,
-            ], 201);
-
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Image upload failed'], 500);
-        }
-    }
-
-    return response()->json(['error' => 'Image upload failed'], 500);
-  }
-
   
   // Get All Gallery Logs with Images
 
@@ -906,4 +865,168 @@ public function getGalleryLogById(Request $request, $id)
         ], 500);
     }
   }
+
+  public function StaffWeeklyTimelog(int $userId)
+  {
+    try {
+        $staff = StaffUser::find($userId);
+        if (!$staff) {
+            return response()->json([
+                'success' => 0,
+                'error'   => 1,
+                'message' => 'Staff not found',
+                'data'    => null,
+            ], 404);
+        }
+        $startOfWeek = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $endOfWeek = Carbon::now()->endOfWeek(Carbon::SATURDAY)->endOfDay();
+        $logs = DB::table('staff_timelogs')
+            ->where('user_id', $userId)
+            ->whereBetween('logs', [$startOfWeek, $endOfWeek])
+            ->orderBy('logs')
+            ->get();
+        $groupedLogs = $logs->groupBy(function ($log) {
+            return Carbon::parse($log->logs)->toDateString();
+        });
+        $weekData = [];
+        foreach ($groupedLogs as $date => $logGroup) {
+            $totalWork = 0;
+            $totalBreak = 0;
+            $pendingIn = null;
+            $lastOut = null;
+            $punchArray = [];
+            foreach ($logGroup as $row) {
+                $time = Carbon::parse($row->logs);
+                $punchArray[] = [
+                    'type'      => $row->type,
+                    'time'      => $time->format('H:i:s'),
+                    'timestamp' => $row->logs,
+                ];
+                if ($row->type === 'check-in') {
+                    if ($lastOut) {
+                        $gap = $lastOut->diffInSeconds($time);
+                        if ($gap > 0) {
+                            $totalBreak += $gap;
+                        }
+                    }
+                    $pendingIn = $time;
+                } elseif ($row->type === 'check-out') {
+                    if ($pendingIn) {
+                        $work = $pendingIn->diffInSeconds($time);
+                        if ($work > 0) {
+                            $totalWork += $work;
+                        }
+                        $pendingIn = null;
+                    }
+                    $lastOut = $time;
+                }
+            }
+            if ($pendingIn) {
+                $now = Carbon::now();
+                $work = $pendingIn->diffInSeconds($now);
+                $totalWork += $work;
+            }
+            $fmtPunches = collect($punchArray)
+                ->map(fn($p) => "{$p['time']} " . str_replace('check-', '', $p['type']))
+                ->implode(', ');
+            $weekData[] = [
+                'date'              => $date,
+                'staff_name'        => $staff->name,
+                'check_in'          => optional($logGroup->firstWhere('type', 'check-in'))->logs
+                                        ? Carbon::parse($logGroup->firstWhere('type', 'check-in')->logs)->format('H:i:s')
+                                        : null,
+                'check_out'         => optional($logGroup->where('type', 'check-out')->last())->logs
+                                        ? Carbon::parse($logGroup->where('type', 'check-out')->last()->logs)->format('H:i:s')
+                                        : null,
+                'punches'           => $punchArray,
+                'formatted_punches' => $fmtPunches,
+                'total_hours'       => $this->formatSecondsToHoursMinutes($totalWork),
+                'break_hours'       => $this->formatSecondsToHoursMinutes($totalBreak),
+            ];
+        }
+        return response()->json([
+            'success' => 1,
+            'data'    => $weekData,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => 0,
+            'error'   => 1,
+            'message' => 'Something went wrong',
+            'data'    => null,
+        ], 500);
+    }
+  }
+
+  //Gallery Log
+  public function createGalleryLog(Request $request)
+  {
+    $validator = Validator::make($request->all(), [
+        'image' => 'required|string',
+        'user_id' => 'required|exists:staff_users,id',
+        'description' => 'string|nullable',
+        'date' => 'date|nullable',
+    ]);
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => 0,
+            'error' => 1,
+            'message' => 'Validation failed',
+            'data' => ['errors' => $validator->errors()]
+        ], 422);
+    }
+    try {
+        $log = Staff_emergency_logs::create([
+            'user_id' => $request->user_id,
+            'image_path' => $request->image,
+            'description' => $request->description ?? '',
+            'date' => $request->date ?? now(),
+            'status' => 'pending',
+        ]);
+        return response()->json([
+            'success' => 1,
+            'error' => 0,
+            'message' => 'Gallery log saved successfully',
+            'data' => $log,
+        ], 201);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => 0,
+            'error' => 1,
+            'message' => 'Something went wrong',
+            'data' => null,
+        ], 500);
+    }
+  }
+
+  public function fetchEmergencyLogs(Request $request)
+  {
+    try {
+          $request->validate([
+              'user_id' => 'required|integer',
+              'startDate' => 'nullable|date_format:Y-m-d',
+              'endDate' => 'nullable|date_format:Y-m-d|after_or_equal:startDate',
+          ]);
+          $targetUserId = $request->user_id;
+          $query = Staff_emergency_logs::where('user_id', $targetUserId);
+          if ($request->filled('startDate')) {
+              $query->whereDate('created_at', '>=', $request->startDate);
+          }
+          if ($request->filled('endDate')) {
+              $query->whereDate('created_at', '<=', $request->endDate);
+          }
+          $logs = $query->orderBy('created_at', 'desc')->get();
+          return response()->json([
+              'success' => 1,
+              'message' => 'Emergency logs fetched successfully.',
+              'data' => $logs,
+          ], 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => 0,
+                'message' => 'An internal server error occurred.',
+                'data' => null,
+            ], 500);
+        }
+    }
 } 

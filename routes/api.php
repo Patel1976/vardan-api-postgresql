@@ -40,6 +40,14 @@ Route::middleware([JwtMiddleware::class])->prefix('app')->group(function () {
   Route::post('/staff-timelog-range', [StaffUserController::class, 'StaffTimelogRange']);
   //---> Create Location Route
   Route::post('/add-staff-location', [StaffLocationController::class, 'store']);
+  //---> Create Emergency Log Route
+  Route::post('/create-gallery-log', [StaffUserController::class, 'createGalleryLog']);
+  Route::post('/emergency-log', [StaffUserController::class, 'fetchEmergencyLogs']);
+  //---> Profile Update Route
+  Route::put('staff-user-update/{id}', [StaffUserController::class, 'updateStaffUser']);
+  //---> Dashboard Route
+  Route::post('/dashboard-today-log/{id}', [StaffUserController::class, 'StaffTimelog']);
+  Route::post('/dashboard-weekly-log/{id}', [StaffUserController::class, 'StaffWeeklyTimelog']);
 });
 
 // without spatie middleware
