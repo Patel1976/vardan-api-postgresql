@@ -854,6 +854,7 @@ public function getGalleryLogById(Request $request, $id)
                 ];
             }
         }
+        $data = collect($data)->sortByDesc('date')->values()->all();
         return response()->json(['success' => 1, 'data' => $data]);
     } catch (\Throwable $e) {
         return response()->json([
