@@ -95,7 +95,8 @@ Route::middleware([JwtMiddleware::class])->prefix('staff-users')->group(function
 });
 
 
-Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->prefix('admin')->group(function () {
+// Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->prefix('admin')->group(function () {
+Route::middleware([JwtMiddleware::class])->prefix('admin')->group(function () {
   // --> Role route
   Route::post('/create-role', [RoleController::class, 'createRole']);
   Route::put('/update-role/{id}', [RoleController::class, 'updateRole']);

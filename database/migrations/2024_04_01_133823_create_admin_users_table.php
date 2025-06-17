@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('token')->nullable();
             $table->timestamp('token_created_at')->nullable();
             $table->rememberToken();
+            $table->text('image')->nullable();
             $table->timestamps();
         });
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -47,9 +48,9 @@ return new class extends Migration
             // 'role' => 'Super Admin'
         ]);
         AdminUser::create([
-            'name' => 'Editor',
-            'email' => 'editor@gmail.com',
-            'password' => bcrypt('pass1234'), 
+            'name' => 'User',
+            'email' => 'user@gmail.com',
+            'password' => bcrypt('user@123'), 
         ]);
     }
 

@@ -11,6 +11,9 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use App\Models\EmailTemplate;
+use App\Mail\EmergencyLogMail;
 
 class StaffUserController
 {
@@ -128,7 +131,7 @@ class StaffUserController
   public function getAllStaffUsers()
   {
     try {
-      $staffUsers = StaffUser::all();
+      $staffUsers = StaffUser::orderBy('id', 'asc')->get();
       return response()->json([
         'success' => 1,
         'error' => 0,
@@ -874,65 +877,103 @@ public function getGalleryLogById(Request $request, $id)
         if (!$staff) {
             return response()->json([
                 'success' => 0,
-                'error'   => 1,
+                'error' => 1,
                 'message' => 'Staff not found',
-                'data'    => null,
+                'data' => null,
             ], 404);
         }
         $startOfWeek = Carbon::now()->startOfWeek(Carbon::MONDAY);
         $endOfWeek = Carbon::now()->endOfWeek(Carbon::SATURDAY)->endOfDay();
+        $startRecent = Carbon::now()->subDays(6)->startOfDay();
+        $endRecent = Carbon::now()->endOfDay();
         $logs = DB::table('staff_timelogs')
             ->where('user_id', $userId)
-            ->whereBetween('logs', [$startOfWeek, $endOfWeek])
+            ->where(function ($query) use ($startOfWeek, $endOfWeek, $startRecent, $endRecent) {
+                $query->whereBetween('logs', [$startOfWeek, $endOfWeek])
+                      ->orWhereBetween('logs', [$startRecent, $endRecent]);
+            })
             ->orderBy('logs')
             ->get();
-        $groupedLogs = $logs->groupBy(function ($log) {
-            return Carbon::parse($log->logs)->toDateString();
+        $weeklyLogs = $logs->filter(function ($log) use ($startOfWeek, $endOfWeek) {
+            return Carbon::parse($log->logs)->between($startOfWeek, $endOfWeek);
         });
-        $weekData = [];
-        foreach ($groupedLogs as $date => $logGroup) {
-            $totalWork = 0;
-            $totalBreak = 0;
+        $weeklyGrouped = $weeklyLogs->groupBy(fn($log) => Carbon::parse($log->logs)->toDateString());
+        $totalWork = 0;
+        $totalBreak = 0;
+        $presentDays = 0;
+        foreach ($weeklyGrouped as $logGroup) {
             $pendingIn = null;
             $lastOut = null;
-            $punchArray = [];
-            foreach ($logGroup as $row) {
-                $time = Carbon::parse($row->logs);
-                $punchArray[] = [
-                    'type'      => $row->type,
-                    'time'      => $time->format('H:i:s'),
-                    'timestamp' => $row->logs,
-                ];
-                if ($row->type === 'check-in') {
+            $dayWork = 0;
+            $dayBreak = 0;
+            foreach ($logGroup as $log) {
+                $time = Carbon::parse($log->logs);
+                if ($log->type === 'check-in') {
                     if ($lastOut) {
                         $gap = $lastOut->diffInSeconds($time);
-                        if ($gap > 0) {
-                            $totalBreak += $gap;
-                        }
+                        $dayBreak += max(0, $gap);
                     }
                     $pendingIn = $time;
-                } elseif ($row->type === 'check-out') {
+                } elseif ($log->type === 'check-out') {
                     if ($pendingIn) {
                         $work = $pendingIn->diffInSeconds($time);
-                        if ($work > 0) {
-                            $totalWork += $work;
-                        }
+                        $dayWork += max(0, $work);
                         $pendingIn = null;
                     }
                     $lastOut = $time;
                 }
             }
             if ($pendingIn) {
-                $now = Carbon::now();
-                $work = $pendingIn->diffInSeconds($now);
-                $totalWork += $work;
+              $dayEnd = Carbon::parse($logGroup->first()->logs)->copy()->endOfDay();
+              $dayWork += $pendingIn->diffInSeconds($dayEnd);
             }
-            $fmtPunches = collect($punchArray)
-                ->map(fn($p) => "{$p['time']} " . str_replace('check-', '', $p['type']))
-                ->implode(', ');
-            $weekData[] = [
+            if ($dayWork > 0) {
+                $totalWork += $dayWork;
+                $totalBreak += $dayBreak;
+                $presentDays++;
+            }
+        }
+        $averagePerDay = $presentDays > 0 ? floor($totalWork / $presentDays) : 0;
+        $recentLogs = $logs->filter(function ($log) use ($startRecent, $endRecent) {
+            return Carbon::parse($log->logs)->between($startRecent, $endRecent);
+        });
+        $recentGrouped = $recentLogs->groupBy(fn($log) => Carbon::parse($log->logs)->toDateString());
+        $dailyData = [];
+        foreach ($recentGrouped as $date => $logGroup) {
+            $pendingIn = null;
+            $lastOut = null;
+            $totalDayWork = 0;
+            $totalDayBreak = 0;
+            $punchArray = [];
+            foreach ($logGroup as $log) {
+                $time = Carbon::parse($log->logs);
+                $punchArray[] = [
+                    'type' => $log->type,
+                    'time' => $time->format('H:i:s'),
+                    'timestamp' => $log->logs,
+                ];
+
+                if ($log->type === 'check-in') {
+                    if ($lastOut) {
+                        $gap = $lastOut->diffInSeconds($time);
+                        $totalDayBreak += max(0, $gap);
+                    }
+                    $pendingIn = $time;
+                } elseif ($log->type === 'check-out') {
+                    if ($pendingIn) {
+                        $work = $pendingIn->diffInSeconds($time);
+                        $totalDayWork += max(0, $work);
+                        $pendingIn = null;
+                    }
+                    $lastOut = $time;
+                }
+            }
+            if ($pendingIn) {
+              $dayEnd = Carbon::parse($logGroup->first()->logs)->copy()->endOfDay();
+              $totalDayWork += $pendingIn->diffInSeconds($dayEnd);
+            }
+            $dailyData[] = [
                 'date'              => $date,
-                'staff_name'        => $staff->name,
                 'check_in'          => optional($logGroup->firstWhere('type', 'check-in'))->logs
                                         ? Carbon::parse($logGroup->firstWhere('type', 'check-in')->logs)->format('H:i:s')
                                         : null,
@@ -940,21 +981,28 @@ public function getGalleryLogById(Request $request, $id)
                                         ? Carbon::parse($logGroup->where('type', 'check-out')->last()->logs)->format('H:i:s')
                                         : null,
                 'punches'           => $punchArray,
-                'formatted_punches' => $fmtPunches,
-                'total_hours'       => $this->formatSecondsToHoursMinutes($totalWork),
-                'break_hours'       => $this->formatSecondsToHoursMinutes($totalBreak),
+                'formatted_punches' => collect($punchArray)->map(fn($p) => "{$p['time']} " . str_replace('check-', '', $p['type']))->implode(', '),
+                'total_hours'       => $this->formatSecondsToHoursMinutes($totalDayWork),
+                'break_hours'       => $this->formatSecondsToHoursMinutes($totalDayBreak),
             ];
         }
         return response()->json([
             'success' => 1,
-            'data'    => $weekData,
+            'data' => [
+                'summary' => [
+                    'total_hours'  => $this->formatSecondsToHoursMinutes($totalWork),
+                    'total_break'  => $this->formatSecondsToHoursMinutes($totalBreak),
+                    'present_days' => $presentDays,
+                    'avg_per_day'  => $this->formatSecondsToHoursMinutes($averagePerDay),
+                ],
+                'recent_logs' => $dailyData,
+            ],
         ]);
     } catch (\Throwable $e) {
         return response()->json([
             'success' => 0,
-            'error'   => 1,
             'message' => 'Something went wrong',
-            'data'    => null,
+            'data' => null,
         ], 500);
     }
   }
@@ -984,6 +1032,53 @@ public function getGalleryLogById(Request $request, $id)
             'date' => $request->date ?? now(),
             'status' => 'pending',
         ]);
+        $staff = StaffUser::find($request->user_id);
+        $template = DB::table('email_templates')->where('name', 'Emergency Logs')->first();
+        if ($template) {
+            $imageData = $request->image;
+            $imageType = 'jpg'; 
+            if (preg_match('/^data:image\/(\w+);base64,/', $imageData, $typeMatch)) {
+                $imageType = strtolower($typeMatch[1]);
+                $imageData = substr($imageData, strpos($imageData, ',') + 1);
+            } else {
+                $imageData = $request->image;
+            }
+            $imageBinary = base64_decode($imageData);
+            if ($imageBinary === false) {
+                return response()->json(['error' => 1, 'message' => 'Invalid base64 image'], 422);
+            }
+            $allowedTypes = ['jpg', 'jpeg', 'png', 'webp'];
+            if (!in_array($imageType, $allowedTypes)) {
+                return response()->json(['error' => 1, 'message' => 'Unsupported image type'], 422);
+            }
+            $imageName = uniqid() . '.' . $imageType;
+            $directory = public_path('uploads/emergency_logs');
+            if (!file_exists($directory)) {
+                mkdir($directory, 0755, true);
+            }
+            $fullPath = $directory . '/' . $imageName;
+            file_put_contents($fullPath, $imageBinary);
+            $imagePath = 'uploads/emergency_logs/' . $imageName;
+            // $imageTag = "<img src='" . asset($imagePath) . "' style='max-width:300px;'>";
+            $ngrokBaseUrl = 'https://acf1-2402-a00-405-cca4-71fb-d1f2-8bc7-1397.ngrok-free.app';
+            $imageTag = "<img src='" . $ngrokBaseUrl . '/' . $imagePath . "' style='max-width:300px;'>";
+            $replacements = [
+                '[ADMIN]'     => 'Admin',
+                '[NAME]'      => $staff->name ?? '',
+                '[EMAIL]'     => $staff->email ?? '',
+                '[REASON]'    => $request->description ?? '',
+                '[IMAGE_URL]' => $imageTag,
+            ];
+            $emailBody = str_replace(array_keys($replacements), array_values($replacements), $template->body);
+            $activeUsers = DB::table('admin_users')->where('status', 'true')->pluck('email');
+            foreach ($activeUsers as $email) {
+                Mail::send([], [], function ($message) use ($email, $template, $emailBody) {
+                    $message->to($email)
+                            ->subject($template->subject ?? 'Emergency Logs Submitted')
+                            ->html($emailBody);
+                });
+            }
+        }
         return response()->json([
             'success' => 1,
             'error' => 0,
@@ -991,6 +1086,7 @@ public function getGalleryLogById(Request $request, $id)
             'data' => $log,
         ], 201);
     } catch (\Throwable $e) {
+        \Log::error('Gallery log error: ' . $e->getMessage());
         return response()->json([
             'success' => 0,
             'error' => 1,

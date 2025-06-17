@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Hash; 
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class AdminUserController
@@ -17,14 +18,12 @@ class AdminUserController
     //Add new user
     public function createUser(Request $request)
     {
-
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:admin_users|max:255',
             'password' => 'required|string|min:8|max:255',
             'phone' => 'required|string|max:20',
         ]);
-
         if ($validator->fails()) {
             return response()->json([
                 'success' => 0,
@@ -43,11 +42,8 @@ class AdminUserController
                     'email' => $request->email,
                     'password' => bcrypt($request->password),
                     'phone' => $request->phone,
-                    'role' => $request->role
                 ]);
-                if ($request->role) {
-                    $user->syncRoles([$request->role]);
-                }
+                $user->syncRoles(['Admin']);
                 return response()->json([
                     'success' => 1,
                     'error' => 0,
@@ -73,14 +69,12 @@ class AdminUserController
     }
 
      //Edit existing user's Data
-     public function updateUser(Request $request, $id)
+    public function updateUser(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'string|max:255',
             'phone' => 'string|max:20',
-            'role' => 'string|max:255',
         ]);
-
         if ($validator->fails()) {
             return response()->json([
                 'success' => 0,
@@ -96,10 +90,6 @@ class AdminUserController
             $user->name = $request->name;
             $user->phone = $request->phone;
             $user->update();
-            $roleName = $request->role;
-            if ($roleName) {
-                $user->syncRoles([$roleName]); // Sync the new role
-            }
             return response()->json([
                 'success' => 1,
                 'error' => 0,
@@ -120,7 +110,7 @@ class AdminUserController
     public function getAllUsers()
     {
         try {
-            $findAllUsers = AdminUser::with('userRoles')->get();
+            $findAllUsers = AdminUser::with('userRoles')->orderBy('id', 'asc')->get();
             return response()->json([
                 'success' => 1,
                 'error' => 0,
@@ -270,11 +260,10 @@ class AdminUserController
 
     public function changeUserPassword(Request $request, $id)
     {
-
         $validator = Validator::make($request->all(), [
-            'password' => 'required|string|min:8|max:255',
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|max:255|confirmed',
         ]);
-
         if ($validator->fails()) {
             return response()->json([
                 'success' => 0,
@@ -287,8 +276,16 @@ class AdminUserController
         }
         try {
             $user = AdminUser::findOrFail($id);
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'success' => 0,
+                    'error' => 1,
+                    'message' => 'Current password is incorrect',
+                    'data' => null
+                ], 400);
+            }
             $user->password = bcrypt($request->password);
-            $user->update();
+            $user->save();
             return response()->json([
                 'success' => 1,
                 'error' => 0,
@@ -299,12 +296,11 @@ class AdminUserController
             return response()->json([
                 'success' => 0,
                 'error' => 1,
-                'message' => 'Somethings went wrong',
+                'message' => 'Something went wrong',
                 'data' => null
             ], 500);
         }
     }
-
 
     //Delete User
     public function deleteUser(Request $request, $id)
