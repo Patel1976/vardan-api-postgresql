@@ -28,6 +28,8 @@ Route::prefix('app')->group(function () {
   //---> Authentication Routes
   Route::post('/auth/login', [AppAuthController::class, 'loginWithOtp']);
   Route::post('/auth/request-otp', [AppAuthController::class, 'requestOtp']);
+  Route::post('/auth/check-device-login', [AppAuthController::class, 'checkDeviceLogin']);
+  // Route::post('/auth/getLatestToken', [AppAuthController::class, 'getLatestToken']);
 });
 Route::middleware([JwtMiddleware::class])->prefix('app')->group(function () {
   //---> Authentication Routes

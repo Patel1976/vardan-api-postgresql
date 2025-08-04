@@ -32,7 +32,7 @@ return new class extends Migration
         EmailTemplate::create([
             "name" => "Emergency Logs",
             "subject" => "Emergency Logs Submitted",
-            "body" => "<p><strong>Hi [ADMIN],</strong></p><p><strong>Staff Name: </strong>[NAME]</p><p><strong>Email:</strong> [EMAIL]</p><p><strong>Reason: </strong></p><p>[REASON]</p><p><strong>Submitted Image:</strong></p><p>[IMAGE_URL]</p><p>Please review this emergency log in the admin panel for further action.</p>"
+            "body" => "<p><strong>Hi [ADMIN],</strong></p><p><br></p><p>A new emergency log has been submitted by a staff member.</p><p>Details are as the following,</p><p><strong>Staff Name: </strong>[NAME]</p><p><strong>Email:</strong> [EMAIL]</p><p><strong>Reason: </strong>[REASON]</p><p><strong>Submitted Image:</strong></p><p>[IMAGE_URL]</p><p><br></p><p>Please review this log in admin panel for further action.</p><p><br></p><p>Thank you!</p>"
         ]);
     }
     

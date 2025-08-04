@@ -43,15 +43,15 @@ return new class extends Migration
 
         AdminUser::create([
             'name' => 'Admin',
-            'email' => 'admin@admin.com',
-            'password' => bcrypt('admin@123'), 
+            'email' => 'dan@ranucle.com',
+            'password' => bcrypt('Admin@123'), 
             // 'role' => 'Super Admin'
         ]);
-        AdminUser::create([
-            'name' => 'User',
-            'email' => 'user@gmail.com',
-            'password' => bcrypt('user@123'), 
-        ]);
+        // AdminUser::create([
+        //     'name' => 'User',
+        //     'email' => 'user@gmail.com',
+        //     'password' => bcrypt('user@123'), 
+        // ]);
     }
 
     /**

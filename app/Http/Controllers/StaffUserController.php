@@ -27,9 +27,8 @@ class StaffUserController
       'address' => 'required|string|max:500',
       'status' => 'boolean|nullable',
       'department' => 'nullable|string|max:255',
-      'image' => 'nullable|string',
+      'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
     ]);
-
     if ($validator->fails()) {
       return response()->json([
         'success' => 0,
@@ -40,20 +39,24 @@ class StaffUserController
         ]
       ], 422);
     }
-
     try {
-      $staffUser = StaffUser::create([
-        'uuid' => Str::uuid(),
-        'name' => $request->name,
-        'email' => $request->email,
-        'phone' => $request->phone,
-        'mpin' => $request->mpin,
-        'address' => $request->address,
-        'status' => $request->status ?? 1,
-        'department' => $request->department,
-        'image' => $request->image,
-      ]);
-
+        $staffUser = new StaffUser();
+        $staffUser->uuid = Str::uuid();
+        $staffUser->name = $request->name;
+        $staffUser->email = $request->email;
+        $staffUser->phone = $request->phone;
+        $staffUser->mpin = $request->mpin;
+        $staffUser->address = $request->address;
+        $staffUser->status = $request->status ?? 1;
+        $staffUser->department = $request->department;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $extension = $file->getClientOriginalExtension();
+            $filename = 'staff_' . time() . '.' . $extension;
+            $file->move(public_path('uploads/staff-profile'), $filename);
+            $staffUser->image = 'uploads/staff-profile/' . $filename;
+        }
+        $staffUser->save();
       return response()->json([
         'success' => 1,
         'error' => 0,
@@ -89,7 +92,7 @@ class StaffUserController
       'address' => 'nullable|string|max:500',
       'status' => 'nullable|boolean',
       'department' => 'nullable|string|max:255',
-      'image' => 'nullable|string',
+      'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
     ]);
     if ($validator->fails()) {
       return response()->json([
@@ -107,9 +110,17 @@ class StaffUserController
       $staffUser->address = $request->input('address', $staffUser->address);
       $staffUser->status = $request->input('status', $staffUser->status);
       $staffUser->department = $request->input('department', $staffUser->department);
-      $staffUser->image = $request->input('image', $staffUser->image);
+      if ($request->hasFile('image')) {
+          if ($staffUser->image && file_exists(public_path($staffUser->image))) {
+              @unlink(public_path($staffUser->image));
+          }
+          $file = $request->file('image');
+          $extension = $file->getClientOriginalExtension();
+          $filename = 'staff_' . $id . '_' . time() . '.' . $extension;
+          $file->move(public_path('uploads/staff-profile'), $filename);
+          $staffUser->image = 'uploads/staff-profile/' . $filename;
+      }
       $staffUser->save();
-
       return response()->json([
         'success' => true,
         'error' => false,
@@ -118,7 +129,6 @@ class StaffUserController
       ], 200);
 
     } catch (\Throwable $th) {
-      Log::error($th);
       return response()->json([
         'success' => false,
         'error' => true,
@@ -1011,7 +1021,7 @@ public function getGalleryLogById(Request $request, $id)
   public function createGalleryLog(Request $request)
   {
     $validator = Validator::make($request->all(), [
-        'image' => 'required|string',
+        'image' => 'required|file|mimes:jpg,jpeg,png|max:2048',
         'user_id' => 'required|exists:staff_users,id',
         'description' => 'string|nullable',
         'date' => 'date|nullable',
@@ -1025,9 +1035,17 @@ public function getGalleryLogById(Request $request, $id)
         ], 422);
     }
     try {
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = uniqid() . '.' . $image->getClientOriginalExtension();
+            $directory = 'uploads/emergency_logs';
+            $image->move(public_path($directory), $imageName);
+            $imagePath = $directory . '/' . $imageName;
+        }
         $log = Staff_emergency_logs::create([
             'user_id' => $request->user_id,
-            'image_path' => $request->image,
+            'image_path' => $imagePath,
             'description' => $request->description ?? '',
             'date' => $request->date ?? now(),
             'status' => 'pending',
@@ -1035,32 +1053,7 @@ public function getGalleryLogById(Request $request, $id)
         $staff = StaffUser::find($request->user_id);
         $template = DB::table('email_templates')->where('name', 'Emergency Logs')->first();
         if ($template) {
-            $imageData = $request->image;
-            $imageType = 'jpg'; 
-            if (preg_match('/^data:image\/(\w+);base64,/', $imageData, $typeMatch)) {
-                $imageType = strtolower($typeMatch[1]);
-                $imageData = substr($imageData, strpos($imageData, ',') + 1);
-            } else {
-                $imageData = $request->image;
-            }
-            $imageBinary = base64_decode($imageData);
-            if ($imageBinary === false) {
-                return response()->json(['error' => 1, 'message' => 'Invalid base64 image'], 422);
-            }
-            $allowedTypes = ['jpg', 'jpeg', 'png', 'webp'];
-            if (!in_array($imageType, $allowedTypes)) {
-                return response()->json(['error' => 1, 'message' => 'Unsupported image type'], 422);
-            }
-            $imageName = uniqid() . '.' . $imageType;
-            $directory = public_path('uploads/emergency_logs');
-            if (!file_exists($directory)) {
-                mkdir($directory, 0755, true);
-            }
-            $fullPath = $directory . '/' . $imageName;
-            file_put_contents($fullPath, $imageBinary);
-            $imagePath = 'uploads/emergency_logs/' . $imageName;
-            // $imageTag = "<img src='" . asset($imagePath) . "' style='max-width:300px;'>";
-            $ngrokBaseUrl = 'https://acf1-2402-a00-405-cca4-71fb-d1f2-8bc7-1397.ngrok-free.app';
+            $ngrokBaseUrl = 'https://7ffabdf7392b.ngrok-free.app';
             $imageTag = "<img src='" . $ngrokBaseUrl . '/' . $imagePath . "' style='max-width:300px;'>";
             $replacements = [
                 '[ADMIN]'     => 'Admin',

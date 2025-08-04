@@ -218,13 +218,11 @@ class AdminUserController
 
     public function editProfile(Request $request, $id)
     {
-
         $validator = Validator::make($request->all(), [
             'name' => 'string|max:255',
             'phone' => 'string|max:20',
-            'image' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
-
         if ($validator->fails()) {
             return response()->json([
                 'success' => 0,
@@ -240,7 +238,16 @@ class AdminUserController
             $user->name = $request->name;
             $user->email = $request->email;
             $user->phone = $request->phone;
-            $user->image = $request->image;
+            if ($request->hasFile('image')) {
+                if ($user->image && file_exists(public_path($user->image))) {
+                    @unlink(public_path($user->image));
+                }
+                $file = $request->file('image');
+                $extension = $file->getClientOriginalExtension();
+                $filename = 'user_' . $id . '_' . time() . '.' . $extension;
+                $file->move(public_path('uploads/user-profile'), $filename);
+                $user->image = 'uploads/user-profile/' . $filename;
+            }
             $user->update();
             return response()->json([
                 'success' => 1,
