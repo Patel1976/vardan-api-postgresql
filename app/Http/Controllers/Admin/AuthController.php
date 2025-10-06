@@ -21,15 +21,31 @@ class AuthController
     {
         $credentials = $request->only('email', 'password');
         try {
-            if (!Auth::attempt($credentials)) {
+            $user = \App\Models\AdminUser::where('email', $credentials['email'])->first();
+            if (!$user) {
                 return response()->json([
                     'success' => 0,
                     'error' => 1,
-                    'message' => 'Incorrect email or password',
-                    'data' => null
+                    'message' => 'Validation failed',
+                    'data' => [
+                        'errors' => [
+                            'email' => ['Email is incorrect.']
+                        ]
+                    ]
                 ], 401);
             }
-            $user = Auth::user();
+            if (!\Hash::check($credentials['password'], $user->password)) {
+                return response()->json([
+                    'success' => 0,
+                    'error' => 1,
+                    'message' => 'Validation failed',
+                    'data' => [
+                        'errors' => [
+                            'password' => ['Password is incorrect.']
+                        ]
+                    ]
+                ], 401);
+            }
             $token = JWTAuth::fromUser($user);
             if (!$token) {
                 return response()->json([
@@ -39,7 +55,7 @@ class AuthController
                     'data' => null
                 ], 500);
             }
-            $response = response()->json([
+            return response()->json([
                 'success' => 1,
                 'error' => 0,
                 'message' => 'Login Success',
@@ -48,7 +64,6 @@ class AuthController
                     'userData' => $user,
                 ]
             ], 200);
-            return $response;
         } catch (\Throwable $th) {
             return response()->json("Login Failed " . $th->getMessage(), 500);
         }
@@ -102,7 +117,7 @@ class AuthController
     {
         $email = $request->email;
         $token = uniqid();
-        $domain = env('FORNTEND_URL') . 'forget-password/' . $token;
+        $domain = env('FORNTEND_URL') . 'reset-password/' . $token;
         $findEmail = AdminUser::where('email', $email)->first();
         try {
             if ($findEmail) {

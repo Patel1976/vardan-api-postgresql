@@ -10,7 +10,8 @@ use App\Http\Middleware\JwtMiddleware;
 use App\Http\Controllers\StaffLocationController;
 use App\Http\Middleware\RoleOrPermissionMiddleware;
 use App\Http\Controllers\StaffUserController;
-
+use App\Http\Controllers\AppAuthController;
+use App\Http\Controllers\Admin\DashboardController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -23,7 +24,33 @@ Route::prefix('admin')->group(function () {
   Route::post('/auth/verify-forget-token/{token}', [AuthController::class, 'verifyForgetToken']);
 });
 
-
+Route::prefix('app')->group(function () {
+  //---> Authentication Routes
+  Route::post('/auth/login', [AppAuthController::class, 'loginWithOtp']);
+  Route::post('/auth/request-otp', [AppAuthController::class, 'requestOtp']);
+  Route::post('/auth/check-device-login', [AppAuthController::class, 'checkDeviceLogin']);
+  // Route::post('/auth/getLatestToken', [AppAuthController::class, 'getLatestToken']);
+});
+Route::middleware([JwtMiddleware::class])->prefix('app')->group(function () {
+  //---> Authentication Routes
+  Route::post('/auth/logout', [AppAuthController::class, 'logout']);
+  Route::post('/auth/verifyJWT', [AppAuthController::class, 'verifyJWT']);
+  Route::post('/auth/refreshJWT', [AppAuthController::class, 'refreshJWT']);
+  //---> Create Timelogs Routes
+  Route::post('/add-timelogs', [StaffUserController::class, 'createTimeLogs']);
+  Route::post('/timelogs/{id}', [StaffUserController::class, 'StaffTimelog']);
+  Route::post('/staff-timelog-range', [StaffUserController::class, 'StaffTimelogRange']);
+  //---> Create Location Route
+  Route::post('/add-staff-location', [StaffLocationController::class, 'store']);
+  //---> Create Emergency Log Route
+  Route::post('/create-gallery-log', [StaffUserController::class, 'createGalleryLog']);
+  Route::post('/emergency-log', [StaffUserController::class, 'fetchEmergencyLogs']);
+  //---> Profile Update Route
+  Route::put('staff-user-update/{id}', [StaffUserController::class, 'updateStaffUser']);
+  //---> Dashboard Route
+  Route::post('/dashboard-today-log/{id}', [StaffUserController::class, 'StaffTimelog']);
+  Route::post('/dashboard-weekly-log/{id}', [StaffUserController::class, 'StaffWeeklyTimelog']);
+});
 
 // without spatie middleware
 Route::middleware([JwtMiddleware::class])->prefix('admin')->group(function () {
@@ -66,11 +93,12 @@ Route::middleware([JwtMiddleware::class])->prefix('staff-users')->group(function
   Route::delete('delete-staff-user/{id}', [StaffUserController::class, 'deleteStaffUser']);
   Route::post('emergency-image-log/{id}', [StaffUserController::class, 'imagelog']);
   Route::post('/get-staff-locations/{uuid}', [StaffLocationController::class, 'getStaffLocation']);
-  Route::get('get-image-log/{id}', [StaffUserController::class, 'getStaffImageLog']);  //notworking
+  Route::get('get-image-log/{id}', [StaffUserController::class, 'getStaffImageLog']);
 });
 
 
-Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->prefix('admin')->group(function () {
+// Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->prefix('admin')->group(function () {
+Route::middleware([JwtMiddleware::class])->prefix('admin')->group(function () {
   // --> Role route
   Route::post('/create-role', [RoleController::class, 'createRole']);
   Route::put('/update-role/{id}', [RoleController::class, 'updateRole']);
@@ -110,6 +138,11 @@ Route::middleware([JwtMiddleware::class, RoleOrPermissionMiddleware::class])->pr
   Route::post('/get-module-by-id', [SystemModuleController::class, 'getModuleById']);
   Route::post('/get-all-module', [SystemModuleController::class, 'getAllModule']);
   Route::delete('/delete-module', [SystemModuleController::class, 'deleteModule']);
+
+  // Dashboard
+  Route::get('/stats', [DashboardController::class, 'stats']);
+  Route::get('/recent-activities', [DashboardController::class, 'recentActivities']);
+  Route::get('/emergency-notifications', [DashboardController::class, 'emergencyNotifications']);
 });
 
 

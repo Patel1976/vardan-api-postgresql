@@ -14,6 +14,7 @@
         "laravel/tinker": "^2.9",
         "mongodb/laravel-mongodb": "^4.6",
         "spatie/laravel-permission": "^6.4",
+        "twilio/sdk": "^8.6",
         "tymon/jwt-auth": "^2.1"
     },
     "require-dev": {

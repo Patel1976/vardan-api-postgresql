@@ -15,8 +15,12 @@ return new class extends Migration
           $table->string('email')->nullable();
           $table->string('phone')->unique();
           $table->string('mpin')->nullable();
+          $table->integer('otp')->nullable();
           $table->string('address');
           $table->boolean('status')->nullable();
+          $table->string('department')->nullable();
+          $table->string('jwt_token', 500)->nullable();
+          $table->text('image')->nullable();
           $table->timestamps();
         });
     }

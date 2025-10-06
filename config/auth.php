@@ -44,6 +44,10 @@ return [
             'driver' => 'session',
             'provider' => 'admin_users',
         ],
+        'staff' => [
+            'driver' => 'jwt',
+            'provider' => 'staff_users',
+        ],
     ],
 
     /*
@@ -64,6 +68,10 @@ return [
     */
 
     'providers' => [
+        'staff_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\StaffUser::class,
+        ],
         'admin_users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\AdminUser::class),

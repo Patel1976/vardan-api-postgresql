@@ -89,61 +89,107 @@ class SystemModuleController
         }
     }
 
+    // public function fetchUsersModule(Request $request)
+    // {
+    //     try {
+    //         $bearerToken = $request->header('Authorization');
+    //         $token = substr($bearerToken, 7);
+    //         $user = JWTAuth::setToken($token)->toUser();
+
+    //         $roleIds = $user->roles->pluck('id')->toArray();
+
+    //         $userModules = DB::table('role_has_permissions')
+    //             ->whereIn('role_id', $roleIds)
+    //             ->where('permission_id', 1)
+    //             ->first('module');
+
+    //         $finalMenuData = [];
+    //         $slugs = [];
+    //         if ($userModules && $userModules->module) {
+    //             $slugs = json_decode($userModules->module);
+    //         }
+
+    //         if (!in_array('dashboard', $slugs)) {
+    //             $slugs[] = 'dashboard';
+    //         }
+
+    //         $moduleQuery = SystemModule::where('status', true);
+    //         if(in_array(1, $roleIds)){
+    //             $moduleQuery->with(['subModules']);
+    //             $moduleQuery->whereNull('parent_module_id');
+    //         } else {
+    //             $moduleQuery->with([
+    //                 'subModules' => function ($query) use ($slugs) {
+    //                     $query->whereIn('slug', $slugs);
+    //                 }
+    //             ]);
+    //             $moduleQuery->whereNull('parent_module_id');
+    //             $moduleQuery->where(function ($query) use ($slugs) {
+    //                 $query->whereIn('slug', $slugs)
+    //                     ->orWhereNull('slug');
+    //             });
+    //         }
+            
+    //         $moduleQuery->orderBy('display_order', 'ASC');
+    //         $moduleData = $moduleQuery->get();
+    //         if ($moduleData) {
+    //             $moduleData = $moduleData->toArray();
+    //             if (!empty($moduleData)) {
+    //                 foreach ($moduleData as $data) {
+    //                     if (
+    //                         (!empty($data['sub_modules'])) ||
+    //                         (empty($data['sub_modules']) && !empty($data['slug']))
+    //                     ) {
+    //                         $finalMenuData[] = $data;
+    //                     }
+
+    //                 }
+    //             }
+    //         }
+    //         return response()->json([
+    //             'success' => 1,
+    //             'error' => 0,
+    //             'message' => 'Modules and Submodules accessible by the user',
+    //             'data' => $finalMenuData
+    //         ], 200);
+    //     } catch (\Throwable $th) {
+    //         return response()->json([
+    //             'success' => 0,
+    //             'error' => 1,
+    //             'message' => 'Error',
+    //             'data' => $th->getMessage()
+    //         ], 500);
+    //     }
+    // }
     public function fetchUsersModule(Request $request)
     {
         try {
             $bearerToken = $request->header('Authorization');
             $token = substr($bearerToken, 7);
             $user = JWTAuth::setToken($token)->toUser();
-
             $roleIds = $user->roles->pluck('id')->toArray();
-
-            $userModules = DB::table('role_has_permissions')
-                ->whereIn('role_id', $roleIds)
-                ->where('permission_id', 1)
-                ->first('module');
-
-            $finalMenuData = [];
-            $slugs = [];
-            if ($userModules && $userModules->module) {
-                $slugs = json_decode($userModules->module);
-            }
-
-            if (!in_array('dashboard', $slugs)) {
-                $slugs[] = 'dashboard';
-            }
-
-            $moduleQuery = SystemModule::where('status', true);
-            if(in_array(1, $roleIds)){
-                $moduleQuery->with(['subModules']);
-                $moduleQuery->whereNull('parent_module_id');
-            } else {
-                $moduleQuery->with([
-                    'subModules' => function ($query) use ($slugs) {
-                        $query->whereIn('slug', $slugs);
+            $isSuperAdmin = in_array(1, $roleIds);
+            $moduleQuery = SystemModule::where('status', true)
+                ->whereNull('parent_module_id')
+                ->with(['subModules' => function ($query) use ($isSuperAdmin) {
+                    if (!$isSuperAdmin) {
+                        $query->where('id', '!=', 3);
                     }
-                ]);
-                $moduleQuery->whereNull('parent_module_id');
-                $moduleQuery->where(function ($query) use ($slugs) {
-                    $query->whereIn('slug', $slugs)
-                        ->orWhereNull('slug');
-                });
+                    $query->orderBy('display_order', 'ASC');
+                }]);
+            if (!$isSuperAdmin) {
+                $moduleQuery->where('id', '!=', 2);
             }
-            
             $moduleQuery->orderBy('display_order', 'ASC');
             $moduleData = $moduleQuery->get();
-            if ($moduleData) {
-                $moduleData = $moduleData->toArray();
-                if (!empty($moduleData)) {
-                    foreach ($moduleData as $data) {
-                        if (
-                            (!empty($data['sub_modules'])) ||
-                            (empty($data['sub_modules']) && !empty($data['slug']))
-                        ) {
-                            $finalMenuData[] = $data;
-                        }
-
-                    }
+            $finalMenuData = [];
+            foreach ($moduleData as $data) {
+                $dataArray = $data->toArray();
+                if (
+                    (!empty($dataArray['sub_modules'])) ||
+                    (empty($dataArray['sub_modules']) && !empty($dataArray['slug']))
+                ) {
+                    $finalMenuData[] = $dataArray;
                 }
             }
             return response()->json([

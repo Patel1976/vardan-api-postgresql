@@ -21,7 +21,8 @@ class AdminUser extends Authenticatable implements JWTSubject , AuthenticatableC
         'status',
         'phone',
         'token',
-        'token_created_at'
+        'token_created_at',
+        'image'
     ];
     /**
      * The attributes that should be hidden for serialization.

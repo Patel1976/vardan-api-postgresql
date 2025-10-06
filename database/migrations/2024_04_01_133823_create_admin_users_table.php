@@ -23,11 +23,12 @@ return new class extends Migration
             $table->string('token')->nullable();
             $table->timestamp('token_created_at')->nullable();
             $table->rememberToken();
+            $table->text('image')->nullable();
             $table->timestamps();
         });
         Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
+            $table->string('email')->index();
+            $table->string('token')->index();
             $table->timestamp('created_at')->nullable();
         });
         Schema::create('sessions', function (Blueprint $table) {
@@ -42,15 +43,15 @@ return new class extends Migration
 
         AdminUser::create([
             'name' => 'Admin',
-            'email' => 'admin@admin.com',
-            'password' => bcrypt('admin@123'), 
+            'email' => 'dan@ranucle.com',
+            'password' => bcrypt('Admin@123'), 
             // 'role' => 'Super Admin'
         ]);
-        AdminUser::create([
-            'name' => 'Editor',
-            'email' => 'editor@gmail.com',
-            'password' => bcrypt('pass1234'), 
-        ]);
+        // AdminUser::create([
+        //     'name' => 'User',
+        //     'email' => 'user@gmail.com',
+        //     'password' => bcrypt('user@123'), 
+        // ]);
     }
 
     /**
@@ -59,7 +60,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('admin_users');
-        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('password_reset_tokens');  
         Schema::dropIfExists('sessions');
 
     }

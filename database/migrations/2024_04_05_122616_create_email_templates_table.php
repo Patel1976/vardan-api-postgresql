@@ -29,6 +29,11 @@ return new class extends Migration
             "subject" => "change Password Email",
             "body" => "<p>Hi [NAME],</p><p>There was a request to change your password!</p><p>If you did not make this request then please ignore this email.</p><p>Otherwise, please click this link to change your password:</p><p><a href='[CHANGE_PASSWORD_LINK]\' style='display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none;\'>Change Password</a></p><p>Or copy the change password link into your browser: [DOMAIN]</p><p>Thanks,</p>"
         ]);
+        EmailTemplate::create([
+            "name" => "Emergency Logs",
+            "subject" => "Emergency Logs Submitted",
+            "body" => "<p><strong>Hi [ADMIN],</strong></p><p><br></p><p>A new emergency log has been submitted by a staff member.</p><p>Details are as the following,</p><p><strong>Staff Name: </strong>[NAME]</p><p><strong>Email:</strong> [EMAIL]</p><p><strong>Reason: </strong>[REASON]</p><p><strong>Submitted Image:</strong></p><p>[IMAGE_URL]</p><p><br></p><p>Please review this log in admin panel for further action.</p><p><br></p><p>Thank you!</p>"
+        ]);
     }
     
     /**
