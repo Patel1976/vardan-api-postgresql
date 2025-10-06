@@ -2,65 +2,31 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use MongoDB\Client as MongoClient;
-use MongoDB\BSON\UTCDateTime;
+use Illuminate\Support\Str;
 
 class StaffLocation extends Model
 {
-    protected $collection = 'staff_locations';
+    protected $fillable = [
+        'uuid',
+        'name',
+        'latitude',
+        'longitude',
+    ];
 
-    protected $client;
+    protected $casts = [
+        'uuid' => 'string',
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
+    ];
 
-    public function __construct(array $attributes = [])
+    protected static function boot()
     {
-        parent::__construct($attributes);
+        parent::boot();
 
-        // Initialize the MongoDB client
-        $this->client = app('mongodb');
+        static::creating(function ($model) {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) Str::uuid();
+            }
+        });
     }
-
-    public function getCollection()
-    {
-        return $this->client->selectCollection(env('MONGODB_DATABASE'), $this->collection);
-    }
-
-    // Method to get all staff locations
-    public function getAllStaffLocations()
-    {
-        return $this->getCollection()->find()->toArray();
-    }
-
-    // Method to find a staff location by UUID
-    public function findByUUID($uuid)
-    {
-        return $this->getCollection()->find(['uuid' => $uuid])->toArray();
-    }
-
-    // Method to insert a staff location
-    public function insertStaffLocation($data)
-    {
-        $data['created_at'] = new UTCDateTime((new \DateTime())->getTimestamp() * 1000);
-        return $this->getCollection()->insertOne($data);
-    }
-
-    // Method to update a staff location by UUID
-    public function updateStaffLocation($uuid, $data)
-    {
-        return $this->getCollection()->updateOne(
-            ['uuid' => $uuid],
-            ['$set' => $data]
-        );
-    }
-
-    // Method to delete a staff location by UUID
-    public function deleteStaffLocation($uuid)
-    {
-        return $this->getCollection()->deleteOne(['uuid' => $uuid]);
-    }
-
-    // Method to find staff locations with a query
-    public function findWithQuery($pipeline)
-    {
-        return $this->getCollection()->aggregate($pipeline)->toArray();
-    }    
 }
