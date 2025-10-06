@@ -405,6 +405,7 @@ class StaffUserController
                 $type = str_replace('check-', '', $punch['type']);
                 return "{$punch['time']} {$type}";
             }, $punches);
+            $lastPunch = $logEntries->last();
             $results[] = [
                 'date' => $firstLog->log_date,
                 'staff_name' => $firstLog->staff_name,
@@ -418,8 +419,13 @@ class StaffUserController
                 'formatted_punches' => implode(', ', $formattedPunches),
                 'total_hours' => $this->formatSecondsToHoursMinutes($totalWorkSeconds),
                 'break_hours' => $this->formatSecondsToHoursMinutes($totalBreakSeconds),
+                'last_punch_time' => $lastPunch->logs,
             ];
         }
+        $results = collect($results)
+            ->sortByDesc('last_punch_time')
+            ->values()
+            ->all();
         return response()->json([
             'success' => 1,
             'error' => 0,
@@ -491,6 +497,8 @@ class StaffUserController
     if (!empty($request->end_date)) {
       $query->whereDate('created_at', '<=', $request->end_date);
     }
+
+    $query->orderBy('created_at', 'desc');
 
     $perPage = $request->input('per_page', 8);
 
@@ -1053,8 +1061,8 @@ public function getGalleryLogById(Request $request, $id)
         $staff = StaffUser::find($request->user_id);
         $template = DB::table('email_templates')->where('name', 'Emergency Logs')->first();
         if ($template) {
-            $ngrokBaseUrl = 'https://7ffabdf7392b.ngrok-free.app';
-            $imageTag = "<img src='" . $ngrokBaseUrl . '/' . $imagePath . "' style='max-width:300px;'>";
+            $BaseUrl = 'https://d1a0594db911.ngrok-free.app';
+            $imageTag = "<img src='" . $BaseUrl . '/' . $imagePath . "' style='max-width:300px;'>";
             $replacements = [
                 '[ADMIN]'     => 'Admin',
                 '[NAME]'      => $staff->name ?? '',
