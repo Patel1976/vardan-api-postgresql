@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Carbon\Carbon;
 use App\Models\StaffLocation;
 use Illuminate\Http\Request;
-use MongoDB\BSON\UTCDateTime;
 
 class StaffLocationController
 {
@@ -21,58 +20,40 @@ class StaffLocationController
         try {
             // Validate the request data
             $validatedData = $request->validate([
-                'start_date' => 'sometimes|date',
-                'end_date' => 'sometimes|date',
+                'start_date' => 'sometimes|date_format:Y-m-d',
+                'end_date' => 'sometimes|date_format:Y-m-d',
             ]);
     
             // Build the query based on the filters
-            $match = ['uuid' => $uuid];
+            $query = $this->staffLocation->newQuery()->where('uuid', $uuid);
             
-            if (isset($validatedData['start_date']) && !empty($validatedData['start_date'])) {
-                $startDate = Carbon::parse($validatedData['start_date'])->startOfDay();
-                $match['created_at']['$gte'] = new UTCDateTime($startDate->getTimestamp() * 1000);
-            }
-    
-            if (isset($validatedData['end_date']) && !empty($validatedData['end_date'])) {
-                $endDate = Carbon::parse($validatedData['end_date'])->endOfDay();
-                $match['created_at']['$lte'] = new UTCDateTime($endDate->getTimestamp() * 1000);
-            }
-    
             if (isset($validatedData['start_date']) && isset($validatedData['end_date'])) {
                 $startDate = Carbon::parse($validatedData['start_date'])->startOfDay();
                 $endDate = Carbon::parse($validatedData['end_date'])->endOfDay();
-                $match['created_at'] = [
-                    '$gte' => new UTCDateTime($startDate->getTimestamp() * 1000),
-                    '$lte' => new UTCDateTime($endDate->getTimestamp() * 1000),
-                ];
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+
+            } elseif (isset($validatedData['start_date'])) {
+                $startDate = Carbon::parse($validatedData['start_date'])->startOfDay();
+                $query->where('created_at', '>=', $startDate);
+
+            } elseif (isset($validatedData['end_date'])) {
+                $endDate = Carbon::parse($validatedData['end_date'])->endOfDay();
+                $query->where('created_at', '<=', $endDate);
             }
     
             // Define the aggregation pipeline
-            $pipeline = [
-                ['$match' => $match],
-                ['$group' => [
-                    '_id' => [
-                        'latitude' => '$latitude',
-                        'longitude' => '$longitude'
-                    ],
-                    'uuid' => ['$first' => '$uuid'],
-                    'created_at' => ['$first' => '$created_at']
-                ]],
-                ['$project' => [
-                    'latitude' => '$_id.latitude',
-                    'longitude' => '$_id.longitude',
-                    'uuid' => 1,
-                    'created_at' => 1
-                ]]
-            ];
-            // Execute the aggregation
-            $locations = $this->staffLocation->findWithQuery($pipeline);
+            $locations = $query
+                ->select('uuid')
+                ->selectRaw('latitude, longitude, MIN(created_at) as first_seen')
+                ->groupBy('latitude', 'longitude', 'uuid')
+                ->orderBy('first_seen')
+                ->get();
+
             return response()->json([
                 'message' => 'Locations retrieved successfully',
                 'locations' => $locations,
             ], 200);
         } catch (\Exception $e) {
-            // Log the error and return a failure response
             \Log::error('Error retrieving locations: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Failed to retrieve locations',
@@ -85,24 +66,20 @@ class StaffLocationController
     public function store(Request $request)
     {
         try {
-            // Validate the request data
             $validatedData = $request->validate([
                 'uuid' => 'required|string',
                 'name' => 'required|string',
-                'latitude' => 'required|string',
-                'longitude' => 'required|string',
+                'latitude' => 'required|numeric', 
+                'longitude' => 'required|numeric',
             ]);
 
-            // Insert the location into the database
-            $result = $this->staffLocation->insertStaffLocation($validatedData);
+            $newLocation = $this->staffLocation->create($validatedData);
 
-            // Return a response
             return response()->json([
                 'message' => 'Location added successfully',
-                'inserted_id' => $result->getInsertedId(),
+                'id' => $newLocation->id, 
             ], 201);
         } catch (\Exception $e) {
-            // Log the error and return a failure response
             \Log::error('Error adding location: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Failed to add location',
