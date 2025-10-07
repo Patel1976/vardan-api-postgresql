@@ -1,11 +1,14 @@
 <?php
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class StaffLocation extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'uuid',
         'name',
@@ -14,9 +17,8 @@ class StaffLocation extends Model
     ];
 
     protected $casts = [
-        'uuid' => 'string',
-        'latitude' => 'decimal:7',
-        'longitude' => 'decimal:7',
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
 
     protected static function boot()
